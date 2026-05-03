@@ -16,6 +16,7 @@ type Config struct {
 	Port               int      `json:"port,omitempty"`
 	NoOpen             bool     `json:"no_open,omitempty"`
 	ShareURL           string   `json:"share_url,omitempty"`
+	ShareFlow          string   `json:"share_flow,omitempty"`
 	Quiet              bool     `json:"quiet,omitempty"`
 	Output             string   `json:"output,omitempty"`
 	Author             string   `json:"author,omitempty"`
@@ -58,6 +59,7 @@ func defaultConfig() generatedConfig {
 		Port:       0,
 		NoOpen:     false,
 		ShareURL:   "https://crit.md",
+		ShareFlow:  "",
 		Quiet:      false,
 		Output:     "",
 		Author:     "",
@@ -81,6 +83,7 @@ type generatedConfig struct {
 	Port               int      `json:"port"`
 	NoOpen             bool     `json:"no_open"`
 	ShareURL           string   `json:"share_url"`
+	ShareFlow          string   `json:"share_flow"`
 	Quiet              bool     `json:"quiet"`
 	Output             string   `json:"output"`
 	Author             string   `json:"author"`
@@ -159,6 +162,9 @@ func mergeConfigs(global, project Config, projectPresence configPresence) Config
 	}
 	if project.ShareURL != "" {
 		merged.ShareURL = project.ShareURL
+	}
+	if project.ShareFlow != "" {
+		merged.ShareFlow = project.ShareFlow
 	}
 	if projectPresence.Quiet {
 		merged.Quiet = project.Quiet

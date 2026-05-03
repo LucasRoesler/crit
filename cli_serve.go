@@ -24,6 +24,7 @@ type serverConfig struct {
 	noOpen             bool
 	quiet              bool
 	shareURL           string
+	shareFlow          string
 	authToken          string
 	outputDir          string
 	author             string
@@ -59,6 +60,7 @@ type serverFlagSet struct {
 	noOpen      bool
 	showVersion bool
 	shareURL    string
+	shareFlow   string
 	outputDir   string
 	quiet       bool
 	noIgnore    bool
@@ -148,6 +150,7 @@ func applyConfigDefaults(sf *serverFlagSet, cfg Config) {
 		sf.noOpen = true
 	}
 	sf.shareURL = resolveShareURL(sf.shareURL, cfg, "")
+	sf.shareFlow = cfg.ShareFlow
 	if !sf.quiet && cfg.Quiet {
 		sf.quiet = true
 	}
@@ -210,6 +213,7 @@ func resolveServerConfig(args []string) (*serverConfig, error) {
 		noOpen:             sf.noOpen,
 		quiet:              sf.quiet,
 		shareURL:           sf.shareURL,
+		shareFlow:          sf.shareFlow,
 		authToken:          cfg.AuthToken,
 		outputDir:          sf.outputDir,
 		author:             cfg.Author,

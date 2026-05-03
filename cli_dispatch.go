@@ -119,6 +119,11 @@ Available keys:
   port              int       Port to listen on (default: random)
   no_open           bool      Don't auto-open browser (default: false)
   share_url         string    Share service URL
+  share_flow        string    Share flow mode (config-only, no flag/env). "" (default) — local
+                              server contacts crit-web directly. "popup" — browser opens
+                              crit-web in a popup, authenticates there (e.g. via SSO), and
+                              proxies share/pull/unpublish/re-share through a MessagePort.
+                              Use when crit-web is behind an SSO reverse proxy.
   quiet             bool      Suppress status output (default: false)
   output            string    Output directory for review file
   author            string    Your name for comments (default: git config user.name)
