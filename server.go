@@ -280,6 +280,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"share_url":         s.shareURL,
 		"share_flow":        s.shareFlow,
 		"hosted_url":        sess.GetSharedURL(),
+		"hosted_token":      sess.GetToken(),
 		"delete_token":      sess.GetDeleteToken(),
 		"version":           s.currentVersion,
 		"latest_version":    latestVersion,
@@ -444,7 +445,10 @@ func (s *Server) handleShareURL(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.session.Load().SetSharedURLAndToken(body.URL, body.DeleteToken)
-		writeJSON(w, map[string]string{"ok": "true"})
+		writeJSON(w, map[string]string{
+			"ok":           "true",
+			"hosted_token": tokenFromHostedURL(body.URL),
+		})
 
 	case http.MethodDelete:
 		s.session.Load().SetSharedURLAndToken("", "")
