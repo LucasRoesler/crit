@@ -630,6 +630,57 @@ func TestCollectNewRepliesForPush_NoGitHubRoot(t *testing.T) {
 	}
 }
 
+// TestCollectNewRepliesForPush_ParentSources verifies that local-only replies
+// are collected regardless of how their parent acquired its github_id —
+// whether the parent was imported via `crit pull` or pushed by us in an
+// earlier `crit push`. This pins the fix for issue #442.
+func TestCollectNewRepliesForPush_ParentSources(t *testing.T) {
+	cases := []struct {
+		name        string
+		cf          CritJSONFile
+		wantReplies int
+	}{
+		{
+			name: "parent imported via pull",
+			cf: CritJSONFile{
+				Comments: []Comment{{
+					ID: "c1", GitHubID: 555, StartLine: 1, EndLine: 1, Body: "imported",
+					Replies: []Reply{{ID: "c1-r1", GitHubID: 0, Body: "ack"}},
+				}},
+			},
+			wantReplies: 1,
+		},
+		{
+			name: "parent pushed by us previously",
+			cf: CritJSONFile{
+				Comments: []Comment{{
+					ID: "c1", GitHubID: 777, StartLine: 1, EndLine: 1, Body: "ours",
+					Replies: []Reply{{ID: "c1-r1", GitHubID: 0, Body: "follow-up"}},
+				}},
+			},
+			wantReplies: 1,
+		},
+		{
+			name: "reply already pushed — skipped",
+			cf: CritJSONFile{
+				Comments: []Comment{{
+					ID: "c1", GitHubID: 555, StartLine: 1, EndLine: 1, Body: "imported",
+					Replies: []Reply{{ID: "c1-r1", GitHubID: 999, Body: "synced"}},
+				}},
+			},
+			wantReplies: 0,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := collectNewRepliesForPush(tc.cf)
+			if len(got) != tc.wantReplies {
+				t.Fatalf("got %d replies, want %d: %+v", len(got), tc.wantReplies, got)
+			}
+		})
+	}
+}
+
 func TestAddCommentToCritJSON_RejectsPathTraversal(t *testing.T) {
 	dir := t.TempDir()
 	if err := exec.Command("git", "init", dir).Run(); err != nil {
@@ -2745,4 +2796,257 @@ func TestParsePRViewJSON_SameRepoPR(t *testing.T) {
 	if info.HeadRepoURL == "" {
 		t.Error("HeadRepoURL empty; want owner/repo URL")
 	}
+}
+
+// TestCollectEditedForPush_DetectsBodyDivergence verifies the diff-detection
+// rules behind the edit-push path (#446):
+//   - root comment with edited body relative to recorded hash → enqueued
+//   - reply with edited body relative to recorded hash → enqueued
+//   - GitHubID == 0 (never pushed) → not enqueued (handled by POST path)
+//   - GitHubID != 0 with empty hash → enqueued (canonical local body must be PATCHed up)
+//   - GitHubID != 0 and hash matches Body → not enqueued
+//   - Resolved comment with edited body → not enqueued
+func TestCollectEditedForPush_DetectsBodyDivergence(t *testing.T) {
+	cj := CritJSON{
+		Files: map[string]CritJSONFile{
+			"a.go": {Comments: []Comment{
+				// edited (should be enqueued)
+				{ID: "c1", GitHubID: 100, Body: "edited", LastPushedBodyHash: bodyHashAtPush("original")},
+				// new (no GH ID — POST path handles it)
+				{ID: "c2", GitHubID: 0, Body: "new", LastPushedBodyHash: ""},
+				// pushed but no hash recorded — local body is canonical, PATCH it up
+				{ID: "c3", GitHubID: 101, Body: "current", LastPushedBodyHash: ""},
+				// in sync
+				{ID: "c4", GitHubID: 102, Body: "same", LastPushedBodyHash: bodyHashAtPush("same")},
+				// resolved, even if edited — skipped
+				{ID: "c5", GitHubID: 103, Body: "edited", LastPushedBodyHash: bodyHashAtPush("original"), Resolved: true},
+				// reply edits via parent c6
+				{ID: "c6", GitHubID: 104, Body: "parent", LastPushedBodyHash: bodyHashAtPush("parent"), Replies: []Reply{
+					{ID: "r1", GitHubID: 200, Body: "reply edit", LastPushedBodyHash: bodyHashAtPush("reply orig")}, // enqueued
+					{ID: "r2", GitHubID: 0, Body: "new reply", LastPushedBodyHash: ""},                              // POST path
+				}},
+			}},
+		},
+	}
+
+	edits := collectEditedForPush(cj)
+	if len(edits) != 3 {
+		t.Fatalf("collectEditedForPush returned %d edits, want 3: %+v", len(edits), edits)
+	}
+
+	gotIDs := map[int64]string{}
+	for _, e := range edits {
+		gotIDs[e.GitHubID] = e.Body
+	}
+	if gotIDs[100] != "edited" {
+		t.Errorf("expected root c1 (id=100) → 'edited', got %q", gotIDs[100])
+	}
+	if gotIDs[101] != "current" {
+		t.Errorf("expected root c3 (id=101) → 'current' (empty hash means PATCH), got %q", gotIDs[101])
+	}
+	if gotIDs[200] != "reply edit" {
+		t.Errorf("expected reply r1 (id=200) → 'reply edit', got %q", gotIDs[200])
+	}
+}
+
+// TestUpdateCritJSONWithEditedBodies_StampsLastPushedBodyHash verifies that
+// after PATCH, the review file is rewritten with the edited body's digest
+// stored in LastPushedBodyHash so the next push is a no-op.
+func TestUpdateCritJSONWithEditedBodies_StampsLastPushedBodyHash(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "review.json")
+
+	cj := CritJSON{
+		Files: map[string]CritJSONFile{
+			"a.go": {Comments: []Comment{{
+				ID: "c1", GitHubID: 500, Body: "edited", LastPushedBodyHash: bodyHashAtPush("original"),
+				Replies: []Reply{
+					{ID: "r1", GitHubID: 600, Body: "reply edit", LastPushedBodyHash: bodyHashAtPush("reply orig")},
+				},
+			}}},
+		},
+	}
+	data, err := json.MarshalIndent(cj, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write seed: %v", err)
+	}
+
+	succeeded := []ghEditForPush{
+		{GitHubID: 500, Body: "edited", Path: "a.go"},
+		{GitHubID: 600, Body: "reply edit", IsReply: true},
+	}
+	if err := updateCritJSONWithEditedBodies(path, succeeded); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	out, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var got CritJSON
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	c := got.Files["a.go"].Comments[0]
+	if want := bodyHashAtPush("edited"); c.LastPushedBodyHash != want {
+		t.Errorf("comment LastPushedBodyHash=%q, want %q", c.LastPushedBodyHash, want)
+	}
+	if want := bodyHashAtPush("reply edit"); c.Replies[0].LastPushedBodyHash != want {
+		t.Errorf("reply LastPushedBodyHash=%q, want %q", c.Replies[0].LastPushedBodyHash, want)
+	}
+
+	// Idempotency: re-running collectEditedForPush should now find nothing.
+	if more := collectEditedForPush(got); len(more) != 0 {
+		t.Errorf("after stamping, collectEditedForPush returned %d edits, want 0: %+v", len(more), more)
+	}
+}
+
+// TestMergeGHComments_DoesNotValidatePRProvenance pins the current
+// contract for gap #21 (cross-PR cross-pollination). The ghComment shape
+// (see github.go: ghComment struct) carries no PR number or branch ref —
+// the GitHub REST endpoint /pulls/{N}/comments returns comments without
+// any back-reference to the PR they came from.
+//
+// As a result, mergeGHComments cannot reject "foreign" comments at this
+// layer; the PR-scoping defense lives upstream in the caller (which
+// chooses which /pulls/{N}/comments URL to fetch). This test pins the
+// current behavior so a future contract change (adding a defensive check
+// here, or threading PR metadata into ghComment) is a deliberate decision
+// and not an accidental break of merge logic.
+//
+// If you change merge behavior to reject foreign comments, this test
+// should fail and be updated to assert the new contract.
+func TestMergeGHComments_DoesNotValidatePRProvenance(t *testing.T) {
+	cj := CritJSON{
+		Branch:  "feature-A",
+		BaseRef: "main",
+		Files: map[string]CritJSONFile{
+			"main.go": {
+				Status:   "modified",
+				Comments: []Comment{},
+			},
+		},
+	}
+
+	// Synthetic comments — caller's responsibility to ensure these came
+	// from feature-A's PR, not feature-B's. The merge function has no
+	// way to tell them apart.
+	foreign := []ghComment{
+		{
+			ID: 9999, Path: "main.go", Line: 3, Side: "RIGHT",
+			Body: "comment from a different PR",
+			User: struct {
+				Login string `json:"login"`
+			}{Login: "stranger"},
+			CreatedAt: "2025-01-01T00:00:00Z",
+		},
+	}
+
+	added := mergeGHComments(&cj, foreign)
+	if added != 1 {
+		t.Fatalf("merge added = %d, want 1 (merge is metadata-blind by design); "+
+			"if this dropped to 0 because a defense was added, update the test", added)
+	}
+
+	cf := cj.Files["main.go"]
+	if len(cf.Comments) != 1 {
+		t.Fatalf("expected 1 merged comment, got %d", len(cf.Comments))
+	}
+	if cf.Comments[0].Body != "comment from a different PR" {
+		t.Errorf("merged body = %q", cf.Comments[0].Body)
+	}
+
+	// Document the invariant: ghComment carries no PR/branch field, so
+	// merge cannot self-defend. Any cross-PR safety must live in the
+	// fetch path (the caller decides which /pulls/{N}/comments to read).
+	// If this property changes (e.g. ghComment grows a PullRequestURL
+	// field), this test should be updated to assert the new defense.
+}
+
+// TestZeroGitHubID_TreatedAsNotPushed pins gap #26: a comment or reply
+// with GitHubID == 0 must be treated as "not yet pushed" by every
+// predicate that decides whether to send something to GitHub. If 0 ever
+// becomes a legitimate GitHub ID, multiple call sites would need to
+// change in lockstep — this table test serves as a tripwire.
+//
+// Predicates exercised:
+//   - critJSONToGHComments (root push selector): GitHubID==0 → push,
+//     GitHubID!=0 → skip ("already pushed").
+//   - collectNewRepliesForPush (reply push selector): parent must be on
+//     GH (GitHubID!=0) AND reply must be local (GitHubID==0).
+func TestZeroGitHubID_TreatedAsNotPushed(t *testing.T) {
+	t.Run("root_zero_is_pushed", func(t *testing.T) {
+		cj := CritJSON{
+			Files: map[string]CritJSONFile{
+				"a.go": {Comments: []Comment{
+					{ID: "c1", StartLine: 1, EndLine: 1, Body: "local-only", GitHubID: 0},
+				}},
+			},
+		}
+		out := critJSONToGHComments(cj)
+		if len(out) != 1 {
+			t.Fatalf("GitHubID==0 root must be pushed; got %d entries", len(out))
+		}
+	})
+
+	t.Run("root_nonzero_is_skipped", func(t *testing.T) {
+		cj := CritJSON{
+			Files: map[string]CritJSONFile{
+				"a.go": {Comments: []Comment{
+					{ID: "c1", StartLine: 1, EndLine: 1, Body: "already on GH", GitHubID: 7},
+				}},
+			},
+		}
+		out := critJSONToGHComments(cj)
+		if len(out) != 0 {
+			t.Fatalf("GitHubID!=0 root must be skipped; got %d entries", len(out))
+		}
+	})
+
+	t.Run("reply_with_zero_parent_skipped", func(t *testing.T) {
+		// Parent root is local (GitHubID==0): reply has nothing to attach
+		// to on GitHub, so collectNewRepliesForPush must skip it.
+		cf := CritJSONFile{Comments: []Comment{
+			{ID: "c1", GitHubID: 0, Body: "local root", Replies: []Reply{
+				{ID: "rp1", GitHubID: 0, Body: "local reply"},
+			}},
+		}}
+		got := collectNewRepliesForPush(cf)
+		if len(got) != 0 {
+			t.Fatalf("reply with GitHubID==0 parent must be skipped; got %d", len(got))
+		}
+	})
+
+	t.Run("reply_with_nonzero_parent_zero_self_pushed", func(t *testing.T) {
+		// Parent on GitHub (GitHubID!=0), reply local (GitHubID==0):
+		// must be queued for push.
+		cf := CritJSONFile{Comments: []Comment{
+			{ID: "c1", GitHubID: 100, Body: "remote root", Replies: []Reply{
+				{ID: "rp1", GitHubID: 0, Body: "new local reply"},
+			}},
+		}}
+		got := collectNewRepliesForPush(cf)
+		if len(got) != 1 {
+			t.Fatalf("reply (GitHubID==0, parent!=0) must be queued; got %d", len(got))
+		}
+		if got[0].ParentGHID != 100 || got[0].Body != "new local reply" {
+			t.Errorf("queued reply = %+v", got[0])
+		}
+	})
+
+	t.Run("reply_with_nonzero_parent_nonzero_self_skipped", func(t *testing.T) {
+		// Both parent and reply on GitHub: nothing to do.
+		cf := CritJSONFile{Comments: []Comment{
+			{ID: "c1", GitHubID: 100, Body: "remote root", Replies: []Reply{
+				{ID: "rp1", GitHubID: 200, Body: "remote reply"},
+			}},
+		}}
+		got := collectNewRepliesForPush(cf)
+		if len(got) != 0 {
+			t.Fatalf("reply with GitHubID!=0 must be skipped; got %d", len(got))
+		}
+	})
 }

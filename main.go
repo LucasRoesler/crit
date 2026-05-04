@@ -800,29 +800,43 @@ func runPushLive(ctx pushContext, b pushBuckets) {
 
 	posted := 0
 	postFailed := false
+	var commentIDs map[string]int64
 	if len(b.Postable) > 0 {
 		ghComments := bucketsToGHComments(b.Postable)
-		commentIDs, err := createGHReview(ctx.prNumber, ghComments, ctx.flags.message, ctx.event)
+		ids, err := createGHReview(ctx.prNumber, ghComments, ctx.flags.message, ctx.event)
 		if err != nil {
 			postFailed = true
 			fmt.Fprintf(os.Stderr, "Error posting review: %v\n", err)
 		} else {
 			posted = len(ghComments)
+			commentIDs = ids
+		}
+	}
 
-			// Replies to GitHub-anchored comments only make sense after a
-			// successful review post (so parent IDs are stable).
-			var allReplies []ghReplyForPush
-			for _, cf := range ctx.cj.Files {
-				allReplies = append(allReplies, collectNewRepliesForPush(cf)...)
-			}
-			replyIDs := postPushReplies(ctx.prNumber, allReplies)
+	// Replies to GitHub-anchored comments are independent of whether there
+	// were new top-level comments to post: the parent already has a
+	// github_id (either imported via pull or pushed by us previously), so
+	// the reply can go out regardless. Skip only if the top-level post
+	// failed — parent IDs assigned in this same push wouldn't be stable.
+	if !postFailed {
+		var allReplies []ghReplyForPush
+		for _, cf := range ctx.cj.Files {
+			allReplies = append(allReplies, collectNewRepliesForPush(cf)...)
+		}
+		replyIDs := postPushReplies(ctx.prNumber, allReplies)
+		if len(commentIDs) > 0 || len(replyIDs) > 0 {
 			if uerr := updateCritJSONWithGitHubIDs(ctx.critPath, commentIDs, replyIDs); uerr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to update review file with GitHub IDs: %v\n", uerr)
 			}
 		}
 	}
 
-	printPushSummary(posted, len(b.FullStack)+len(b.Unmapped), exportPath)
+	// PATCH already-pushed comments/replies whose local body diverged from
+	// the recorded push-time hash. Independent of the POST path — edits frequently happen
+	// in pushes where there are no new comments to create.
+	patched := pushEditedBodies(ctx)
+
+	printPushSummary(posted, patched, len(b.FullStack)+len(b.Unmapped), exportPath)
 
 	// Exit code: only fail when gh errored AND we have no orphans to fall
 	// back on. Otherwise something useful happened (export written), so
@@ -834,16 +848,48 @@ func runPushLive(ctx pushContext, b pushBuckets) {
 
 // printPushSummary writes the one-line stdout summary describing what
 // happened. Adapts wording to the actual outcome (no orphans, no posts, etc).
-func printPushSummary(posted, orphans int, exportPath string) {
-	if posted == 0 && orphans == 0 {
+func printPushSummary(posted, patched, orphans int, exportPath string) {
+	if posted == 0 && patched == 0 && orphans == 0 {
 		fmt.Println("No comments to push.")
 		return
 	}
 	if exportPath == "" {
+		if patched > 0 {
+			fmt.Printf("Posted %d comments, edited %d.\n", posted, patched)
+			return
+		}
 		fmt.Printf("Posted %d comments.\n", posted)
 		return
 	}
+	if patched > 0 {
+		fmt.Printf("Posted %d comments, edited %d. %d comments exported to %s.\n",
+			posted, patched, orphans, exportPath)
+		return
+	}
 	fmt.Printf("Posted %d comments. %d comments exported to %s.\n", posted, orphans, exportPath)
+}
+
+// pushEditedBodies PATCHes already-pushed comments/replies whose local body
+// diverged from the recorded push-time hash. Returns the count of records successfully
+// PATCHed and updated in the review file. Failures log to stderr and are
+// excluded from the count, so the next push will retry them.
+func pushEditedBodies(ctx pushContext) int {
+	edits := collectEditedForPush(ctx.cj)
+	if len(edits) == 0 {
+		return 0
+	}
+	succeeded := make([]ghEditForPush, 0, len(edits))
+	for _, e := range edits {
+		if err := patchGHComment(e.GitHubID, e.Body); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to edit comment %d: %v\n", e.GitHubID, err)
+			continue
+		}
+		succeeded = append(succeeded, e)
+	}
+	if uerr := updateCritJSONWithEditedBodies(ctx.critPath, succeeded); uerr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to update review file after edit push: %v\n", uerr)
+	}
+	return len(succeeded)
 }
 
 // fullStackPushGateMessage is the user-facing error string emitted when
