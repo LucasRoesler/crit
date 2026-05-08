@@ -19,6 +19,7 @@ import (
 // It combines CLI flags, environment variables, and config file settings.
 type serverConfig struct {
 	port               int
+	host               string // listen host; default 127.0.0.1, may be 0.0.0.0 to expose on LAN
 	noOpen             bool
 	quiet              bool
 	shareURL           string
@@ -50,6 +51,7 @@ type serverConfig struct {
 // serverFlagSet holds the parsed flag values before config resolution.
 type serverFlagSet struct {
 	port        int
+	host        string
 	noOpen      bool
 	showVersion bool
 	shareURL    string
@@ -76,6 +78,7 @@ func parseServerFlags(args []string) serverFlagSet {
 	fs := flag.NewFlagSet("crit", flag.ExitOnError)
 	port := fs.Int("port", 0, "Port to listen on (default: random available port)")
 	fs.IntVar(port, "p", 0, "Port to listen on (shorthand)")
+	host := fs.String("host", "", "Host to listen on (default: 127.0.0.1; e.g. 0.0.0.0 to expose on LAN — no auth, opt in deliberately)")
 	noOpen := fs.Bool("no-open", false, "Don't auto-open browser")
 	showVersion := fs.Bool("version", false, "Print version and exit")
 	fs.BoolVar(showVersion, "v", false, "Print version and exit (shorthand)")
@@ -100,6 +103,7 @@ func parseServerFlags(args []string) serverFlagSet {
 
 	return serverFlagSet{
 		port:        *port,
+		host:        *host,
 		noOpen:      *noOpen,
 		showVersion: *showVersion,
 		shareURL:    *shareURL,
@@ -130,8 +134,22 @@ func resolvePort(flagPort, cfgPort int) int {
 	return cfgPort
 }
 
+// resolveHost returns the effective listen host. Precedence: --host flag,
+// CRIT_HOST env var, config file value (LoadConfig defaults Host to
+// "127.0.0.1" when no config sets it, so cfgHost is always populated).
+func resolveHost(flagHost, cfgHost string) string {
+	if flagHost != "" {
+		return flagHost
+	}
+	if envHost := os.Getenv("CRIT_HOST"); envHost != "" {
+		return envHost
+	}
+	return cfgHost
+}
+
 func applyConfigDefaults(sf *serverFlagSet, cfg Config) {
 	sf.port = resolvePort(sf.port, cfg.Port)
+	sf.host = resolveHost(sf.host, cfg.Host)
 	if !sf.noOpen && cfg.NoOpen {
 		sf.noOpen = true
 	}
@@ -195,6 +213,7 @@ func resolveServerConfig(args []string) (*serverConfig, error) {
 
 	return &serverConfig{
 		port:               sf.port,
+		host:               sf.host,
 		noOpen:             sf.noOpen,
 		quiet:              sf.quiet,
 		shareURL:           sf.shareURL,
@@ -316,7 +335,8 @@ func applySessionOverrides(session *Session, sc *serverConfig) {
 	}
 }
 
-func bindListener(port int) (net.Listener, error) {
+func bindListener(host string, port int) (net.Listener, error) {
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	var listener net.Listener
 	var err error
 	// Retry only makes sense for an explicit port (port != 0): a previous
@@ -324,7 +344,7 @@ func bindListener(port int) (net.Listener, error) {
 	// drain. For an ephemeral port (port == 0) the OS picks a free port —
 	// failure means something catastrophic, so break immediately.
 	for attempt := 0; attempt < 3; attempt++ {
-		listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		listener, err = net.Listen("tcp", addr)
 		if err == nil {
 			return listener, nil
 		}
@@ -373,7 +393,7 @@ func runServe(args []string) {
 	}
 	sc.quiet = true
 
-	listener, err := bindListener(sc.port)
+	listener, err := bindListener(sc.host, sc.port)
 	if err != nil {
 		daemonFatal(pipe, "Error starting server: %v", err)
 	}
