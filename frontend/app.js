@@ -2174,7 +2174,7 @@
 
     // Intercept click to fix scroll BEFORE collapse (avoids flicker)
     header.addEventListener('click', function(e) {
-      if (e.target.closest('.file-header-toggle') || e.target.closest('.file-header-viewed')) {
+      if (e.target.closest('.file-header-viewed')) {
         e.preventDefault();
         return;
       }
@@ -2287,27 +2287,32 @@
       });
     })(file.path);
 
-    // Toggle for markdown files — hidden when diffActive overrides per-file view.
-    // Git mode: Document | Diff (same as before, diff hunks always present).
-    // Files mode: Raw | Rendered [| Diff when inter-round diff exists].
+    // Toggle for markdown files — rendered as a sibling of the header (not inside it)
+    // so it doesn't inherit the header's sticky background.
+    // Git mode: Document | Diff. Files mode: Raw | Rendered [| Diff].
     const hasDiff = file.diffHunks && file.diffHunks.length > 0;
+    let toggleEl = null;
     if (file.fileType === 'markdown' && !diffActive && (session.mode !== 'git' || hasDiff)) {
-      const toggle = document.createElement('div');
-      toggle.className = 'file-header-toggle';
+      toggleEl = document.createElement('div');
+      toggleEl.className = 'file-header-toggle';
+      const pill = '<div class="toggle-pill" role="group" aria-label="View mode">';
+      const pillEnd = '</div>';
+      const ap = (mode) => ' aria-pressed="' + (file.viewMode === mode ? 'true' : 'false') + '"';
       if (session.mode === 'git') {
-        toggle.innerHTML =
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document">Document</button>' +
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff">Diff</button>';
+        toggleEl.innerHTML = pill +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Document</button>' +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff"' + ap('diff') + '>Diff</button>' +
+          pillEnd;
       } else {
-        toggle.innerHTML =
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'raw' ? ' active' : '') + '" data-mode="raw">Raw</button>' +
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document">Rendered</button>' +
-          (hasDiff ? '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff">Diff</button>' : '');
+        toggleEl.innerHTML = pill +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'raw' ? ' active' : '') + '" data-mode="raw"' + ap('raw') + '>Raw</button>' +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Rendered</button>' +
+          (hasDiff ? '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff"' + ap('diff') + '>Diff</button>' : '') +
+          pillEnd;
       }
-      toggle.addEventListener('click', function(e) {
+      toggleEl.addEventListener('click', function(e) {
         const btn = e.target.closest('.toggle-btn');
         if (!btn) return;
-        e.preventDefault(); // Don't toggle the <details>
         const fileForms = getFormsForFile(file.path);
         fileForms.forEach(function(f) { removeForm(f.formKey); });
         if (activeFilePath === file.path) {
@@ -2317,8 +2322,6 @@
         file.viewMode = btn.dataset.mode;
         renderFileByPath(file.path);
       });
-      header.appendChild(toggle);
-
     }
 
     // File comment button — not for orphaned files (no point adding comments to removed files)
@@ -2350,6 +2353,7 @@
     header.appendChild(viewedLabel);
 
     section.appendChild(header);
+    if (toggleEl) section.appendChild(toggleEl);
 
     // File-level comments container (between header and file body)
     // For orphaned files, render ALL comments here (no line blocks to anchor to)
