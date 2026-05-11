@@ -1669,6 +1669,7 @@
       const collapseBtn = document.createElement('button');
       collapseBtn.className = 'file-tree-collapse-btn';
       collapseBtn.title = 'Collapse all files';
+      collapseBtn.setAttribute('aria-label', 'Collapse all files');
       // Stacked chevron SVG
       collapseBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.22 3.22a.75.75 0 0 1 1.06 0L8 5.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 4.28a.75.75 0 0 1 0-1.06zm0 5a.75.75 0 0 1 1.06 0L8 10.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 9.28a.75.75 0 0 1 0-1.06z"/></svg>';
       collapseBtn.addEventListener('click', function() {
@@ -1680,7 +1681,9 @@
         for (let i = 0; i < sections.length; i++) {
           sections[i].open = !anyExpanded;
         }
-        collapseBtn.title = anyExpanded ? 'Expand all files' : 'Collapse all files';
+        const label = anyExpanded ? 'Expand all files' : 'Collapse all files';
+        collapseBtn.title = label;
+        collapseBtn.setAttribute('aria-label', label);
         collapseBtn.classList.toggle('all-collapsed', anyExpanded);
       });
       const headerEl = document.querySelector('.file-tree-header');
@@ -1702,6 +1705,43 @@
 
     // Set up intersection observer for active file tracking
     setupTreeObserver();
+
+    renderMobileFilePicker();
+  }
+
+  function renderMobileFilePicker() {
+    const bar = document.getElementById('mobileFilePickerBar');
+    const select = document.getElementById('mobileFilePicker');
+    if (!bar || !select) return;
+
+    if (files.length <= 1) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+
+    const currentValue = select.value;
+    select.innerHTML = '';
+    for (let i = 0; i < files.length; i++) {
+      const opt = document.createElement('option');
+      opt.value = files[i].path;
+      opt.textContent = files[i].path;
+      select.appendChild(opt);
+    }
+
+    if (currentValue && files.some(function(f) { return f.path === currentValue; })) {
+      select.value = currentValue;
+    }
+
+    if (!select._mobilePickerBound) {
+      select._mobilePickerBound = true;
+      select.addEventListener('change', function() {
+        const sectionEl = document.getElementById('file-section-' + select.value);
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+      });
+    }
   }
 
   function buildReviewConversationTreeRow() {
@@ -2572,7 +2612,7 @@
       lineAdd.className = 'line-add';
       lineAdd.textContent = '+';
       commentGutter.appendChild(lineAdd);
-      commentGutter.addEventListener('mousedown', handleGutterMouseDown);
+      commentGutter.addEventListener('pointerdown', handleGutterMouseDown);
       lineBlockEl.appendChild(commentGutter);
     } else {
       // Non-commentable block: still add gutter but mark as read-only
@@ -2816,7 +2856,7 @@
       lineAdd.className = 'line-add';
       lineAdd.textContent = '+';
       commentGutter.appendChild(lineAdd);
-      commentGutter.addEventListener('mousedown', handleGutterMouseDown);
+      commentGutter.addEventListener('pointerdown', handleGutterMouseDown);
 
       // Content
       const content = document.createElement('div');
@@ -3193,9 +3233,11 @@
     btn.dataset.lineNum = lineNum;
     btn.dataset.side = side || '';
     if (visualIdx !== undefined) btn.dataset.visualIdx = visualIdx;
-    btn.addEventListener('mousedown', function(e) {
+    btn.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0 && e.button !== undefined) return;
       e.preventDefault();
       e.stopPropagation();
+      this.setPointerCapture(e.pointerId);
       const fp = this.dataset.filePath;
       const ln = parseInt(this.dataset.lineNum);
       const s = this.dataset.side || '';
@@ -3212,8 +3254,8 @@
       renderFileByPath(fp);
 
       document.body.classList.add('dragging');
-      document.addEventListener('mousemove', handleDiffDragMove);
-      document.addEventListener('mouseup', handleDiffDragEnd);
+      document.addEventListener('pointermove', handleDiffDragMove);
+      document.addEventListener('pointerup', handleDiffDragEnd);
     });
     col.appendChild(btn);
     return col;
@@ -3221,6 +3263,7 @@
 
   function handleDiffDragMove(e) {
     if (!diffDragState) return;
+    if (e.pointerType === 'touch') e.preventDefault();
     const el = document.elementFromPoint(e.clientX, e.clientY);
     if (!el) return;
     // Find the nearest diff line with data attributes
@@ -3249,8 +3292,8 @@
   }
 
   function handleDiffDragEnd() {
-    document.removeEventListener('mousemove', handleDiffDragMove);
-    document.removeEventListener('mouseup', handleDiffDragEnd);
+    document.removeEventListener('pointermove', handleDiffDragMove);
+    document.removeEventListener('pointerup', handleDiffDragEnd);
     document.body.classList.remove('dragging');
 
     if (!diffDragState) return;
@@ -4310,7 +4353,9 @@
   let dragState = null;
 
   function handleGutterMouseDown(e) {
+    if (e.button !== 0 && e.button !== undefined) return;
     e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
     const gutter = e.currentTarget;
     const startLine = parseInt(gutter.dataset.startLine);
     const endLine = parseInt(gutter.dataset.endLine);
@@ -4348,8 +4393,8 @@
     renderFileByPath(filePath);
 
     document.body.classList.add('dragging');
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
+    document.addEventListener('pointermove', handleDragMove);
+    document.addEventListener('pointerup', handleDragEnd);
   }
 
   // Update drag selection CSS classes on existing DOM without full re-render.
@@ -4455,6 +4500,7 @@
 
   function handleDragMove(e) {
     if (!dragState) return;
+    if (e.pointerType === 'touch') e.preventDefault();
     const el = document.elementFromPoint(e.clientX, e.clientY);
     if (!el) return;
     const lineBlock = el.closest('.line-block');
@@ -4474,8 +4520,8 @@
   }
 
   function handleDragEnd() {
-    document.removeEventListener('mousemove', handleDragMove);
-    document.removeEventListener('mouseup', handleDragEnd);
+    document.removeEventListener('pointermove', handleDragMove);
+    document.removeEventListener('pointerup', handleDragEnd);
     document.body.classList.remove('dragging');
 
     if (!dragState) return;
@@ -5611,12 +5657,15 @@
     const collapseBtn = document.createElement('button');
     collapseBtn.className = 'comment-collapse-btn';
     collapseBtn.title = isCollapsed ? 'Expand comment' : 'Collapse comment';
+    collapseBtn.setAttribute('aria-label', isCollapsed ? 'Expand comment' : 'Collapse comment');
     collapseBtn.innerHTML = ICON_CHEVRON;
     collapseBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       card.classList.toggle('collapsed');
       commentCollapseOverrides[comment.id] = card.classList.contains('collapsed');
-      collapseBtn.title = card.classList.contains('collapsed') ? 'Expand comment' : 'Collapse comment';
+      const label = card.classList.contains('collapsed') ? 'Expand comment' : 'Collapse comment';
+      collapseBtn.title = label;
+      collapseBtn.setAttribute('aria-label', label);
     });
 
     const headerLeft = document.createElement('div');
@@ -5797,12 +5846,14 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', () => editComment(comment, filePath));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', () => deleteComment(comment.id, filePath));
 
@@ -5855,11 +5906,13 @@
       replyActions.className = 'reply-actions';
       const replyEditBtn = document.createElement('button');
       replyEditBtn.title = 'Edit';
+      replyEditBtn.setAttribute('aria-label', 'Edit reply');
       replyEditBtn.innerHTML = ICON_EDIT;
       replyEditBtn.addEventListener('click', function(e) { e.stopPropagation(); editReply(comment.id, reply.id, filePath); });
       const replyDeleteBtn = document.createElement('button');
       replyDeleteBtn.className = 'delete-btn';
       replyDeleteBtn.title = 'Delete';
+      replyDeleteBtn.setAttribute('aria-label', 'Delete reply');
       replyDeleteBtn.innerHTML = ICON_DELETE;
       replyDeleteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteReply(comment.id, reply.id, filePath); });
       replyActions.appendChild(replyEditBtn);
@@ -6341,6 +6394,7 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -6349,6 +6403,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -6797,6 +6852,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function() { deleteComment(comment.id, filePath); });
 

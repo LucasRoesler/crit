@@ -5087,3 +5087,139 @@ body.sidebar-resizing * {
   color: var(--crit-brand);
 }
 
+/* ===== Mobile / Touch ===== */
+
+/* C1: On touch devices the gutter + button must always be visible —
+   hover never fires on touch, so opacity:0 makes it permanently inaccessible. */
+@media (pointer: coarse) {
+  .line-add {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Diff view + button: same reason. */
+  .diff-comment-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Keep drag-range in-between lines hidden during an active drag (unchanged). */
+  body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add {
+    opacity: 0;
+    pointer-events: none;
+  }
+  body.dragging .diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* M1: Comment edit/reply/delete actions are hover-gated on desktop.
+     On touch there is no hover, so always show them. */
+  .reply-actions {
+    opacity: 1;
+  }
+
+  /* M2: Touch targets — minimum 44×44px for all interactive header controls. */
+  .comment-nav-btn {
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .comment-count-btn {
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .theme-toggle {
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .update-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .file-comment-btn {
+    padding: 12px 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .reply-actions button {
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+  .toc-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* C4: Prevent iOS Safari from zooming the page when a textarea is focused.
+     iOS zooms any focused input whose font-size is below 16px. */
+  .comment-form textarea,
+  .reply-input {
+    font-size: 16px;
+  }
+}
+
+/* M6: Additional breakpoints — 768px (tablet portrait) fills the gap between
+   600px and 900px where layout was awkward. */
+@media (max-width: 768px) {
+  .file-tree-panel { display: none; }
+  .sidebar-resize-handle { display: none !important; }
+  .comments-panel, .pr-panel { display: none !important; }
+  .scope-toggle { display: none !important; }
+  .diff-mode-toggle { display: none !important; }
+  .header-context { display: none; }
+  .base-branch-picker { display: none; }
+}
+
+/* M7: Comment form left padding is aligned to the gutter column on desktop (56px).
+   On mobile the gutter is absent or much narrower, so the padding just wastes width. */
+@media (max-width: 600px) {
+  .comment-form-wrapper {
+    padding-left: 8px;
+  }
+}
+
+/* M5: Mobile file picker — shown instead of the hidden file-tree sidebar. */
+.mobile-file-picker-bar {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-file-picker-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--crit-bg-card);
+    border-bottom: 1px solid var(--crit-border);
+    position: sticky;
+    top: var(--header-height, 49px);
+    z-index: 90;
+  }
+  .mobile-file-picker-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--crit-editor-fg-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .mobile-file-picker-select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--crit-font-mono);
+    font-size: 13px;
+    color: var(--crit-editor-fg);
+    background: var(--crit-editor-bg-elevated);
+    border: 1px solid var(--crit-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    height: 36px;
+  }
+  .mobile-file-picker-select:focus {
+    outline: 2px solid var(--crit-brand);
+    outline-offset: 1px;
+  }
+}
