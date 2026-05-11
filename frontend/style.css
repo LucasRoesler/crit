@@ -5096,6 +5096,15 @@ body.sidebar-resizing * {
     opacity: 1;
     pointer-events: auto;
   }
+
+  /* On touch, .line-block stretches flex children to full row height by default.
+     For tall blocks (headings, paragraphs) this inflates .line-gutter and the
+     absolutely-positioned .line-comment-gutter to the full block height, making
+     the blue + button appear as a large square.
+     align-self: flex-start keeps the gutter sized to its natural content height. */
+  .line-gutter {
+    align-self: flex-start;
+  }
   /* Diff view + button: same reason. */
   .diff-comment-btn {
     opacity: 1;
