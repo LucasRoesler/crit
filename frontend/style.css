@@ -2917,7 +2917,7 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   .sidebar-resize-handle { display: none !important; }
   #updateBtn { display: none !important; }
   .file-header { padding: 8px 12px; flex-wrap: wrap; }
-  .file-header-toggle { order: 10; flex-basis: fit-content; padding: 4px 0 0; }
+  .file-header-toggle { order: 10; flex-basis: fit-content; padding: 4px 0 0; margin-left: auto; }
   .change-nav { display: none; }
   .scope-toggle { display: none !important; }
   .diff-mode-toggle { display: none !important; }
