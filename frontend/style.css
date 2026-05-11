@@ -2913,8 +2913,8 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   .file-tree-panel { display: none; }
   .sidebar-resize-handle { display: none !important; }
   #updateBtn { display: none !important; }
-  .file-header { padding: 8px 12px; }
-  .file-header-toggle { display: none; }
+  .file-header { padding: 8px 12px; flex-wrap: wrap; }
+  .file-header-toggle { order: 10; flex-basis: 100%; padding: 4px 0 0; }
   .change-nav { display: none; }
   .scope-toggle { display: none !important; }
   .diff-mode-toggle { display: none !important; }
@@ -5133,6 +5133,20 @@ body.sidebar-resizing * {
   .diff-comment-btn {
     opacity: 1;
     pointer-events: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--crit-editor-fg-muted);
+    font-weight: 400;
+  }
+
+  /* In diff view, .line-comment-gutter is a flex sibling (position:relative)
+     with negative margins that overlap adjacent columns — fine when hidden,
+     but on touch the always-visible + bleeds into content. Reset the margins. */
+  .diff-view .line-comment-gutter,
+  .diff-view-unified .line-comment-gutter {
+    margin-left: 0;
+    margin-right: 0;
   }
   /* Keep drag-range in-between lines hidden during an active drag (unchanged). */
   body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add {
