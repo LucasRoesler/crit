@@ -1649,6 +1649,7 @@
     const panel = document.getElementById('fileTreePanel');
     if (files.length <= 1 && session.mode !== 'git') {
       panel.style.display = 'none';
+      renderMobileFilePicker();
       return;
     }
     panel.style.display = '';
@@ -1715,10 +1716,10 @@
     if (!bar || !select) return;
 
     if (files.length <= 1) {
-      bar.hidden = true;
+      bar.classList.add('mobile-file-picker-hidden');
       return;
     }
-    bar.hidden = false;
+    bar.classList.remove('mobile-file-picker-hidden');
 
     const currentValue = select.value;
     select.innerHTML = '';
