@@ -5097,15 +5097,29 @@ body.sidebar-resizing * {
     pointer-events: auto;
   }
 
-  /* On touch, .line-block stretches flex children to full row height by default.
-     For tall blocks (headings, paragraphs) this inflates .line-gutter to the full
-     block height, making the blue + button appear as a large square spanning the
-     entire row. align-self: center keeps the gutter at its natural height and
-     visually centers the line number and + button beside the content. */
+  /* On touch, .line-block is display:flex with no align-items set (defaults to
+     stretch), so .line-gutter stretches to the full row height. For tall blocks
+     (h1 headings, multi-line paragraphs) this makes .line-gutter as tall as the
+     content, which in turn makes the absolutely-positioned .line-comment-gutter
+     (top:0; bottom:0) span that same tall height, producing a large blue square.
+
+     Fix: align-self: flex-start collapses .line-gutter to its natural height
+     (just tall enough for the line number text + the 20px + button). The gutter
+     then sits flush at the top of each block, which is the correct position —
+     line numbers label the *start* of a block, not its vertical center.
+
+     We do NOT use align-self: center because for tall headings the number would
+     float at mid-block, appearing disconnected from the block's first line. */
   .document-wrapper .line-gutter {
-    align-self: center;
+    align-self: flex-start;
   }
-  /* Diff view + button: same reason. */
+
+  /* The absolutely-positioned .line-comment-gutter uses top:0; bottom:0 to fill
+     its .line-gutter parent. After collapsing .line-gutter to natural height
+     above, the absolute element fills only that small height — so the tap target
+     matches the visible gutter area. No further change needed here. */
+
+  /* Diff view + button: same reason as .line-add above. */
   .diff-comment-btn {
     opacity: 1;
     pointer-events: auto;
