@@ -7,7 +7,7 @@ test.beforeEach(async ({ request }) => {
   await clearAllComments(request);
 });
 
-// C1: gutter + button must be visible on touch without hover
+// C1: gutter + prefix must be visible on touch without hover
 test('gutter add-comment button is visible without hover on touch', async ({ page }) => {
   await loadPage(page);
   await switchToDocumentView(page);
@@ -15,19 +15,27 @@ test('gutter add-comment button is visible without hover on touch', async ({ pag
   const section = mdSection(page);
   await expect(section).toBeVisible();
 
-  const lineAdd = section.locator('.line-add').first();
-  await expect(lineAdd).toBeVisible();
+  // The + affordance is the ::before pseudo-element on .line-num (opacity:1 on touch)
+  const lineNum = section.locator('.line-num').first();
+  const opacity = await lineNum.evaluate((el: Element) =>
+    parseFloat(getComputedStyle(el, '::before').opacity)
+  );
+  expect(opacity).toBeGreaterThan(0);
 });
 
-// C1: diff gutter + button visible on touch
+// C1: diff gutter + prefix visible on touch
 test('diff gutter add-comment button is visible without hover on touch', async ({ page }) => {
   await loadPage(page);
 
   const section = goSection(page);
   await expect(section).toBeVisible();
 
-  const diffBtn = section.locator('.diff-comment-btn').first();
-  await expect(diffBtn).toBeVisible();
+  // The + affordance is the ::before pseudo-element on .diff-gutter-num (opacity:1 on touch)
+  const gutterNum = section.locator('.diff-gutter-num').first();
+  const opacity = await gutterNum.evaluate((el: Element) =>
+    parseFloat(getComputedStyle(el, '::before').opacity)
+  );
+  expect(opacity).toBeGreaterThan(0);
 });
 
 // C3: mobile file picker appears when sidebar is hidden

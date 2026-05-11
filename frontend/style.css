@@ -875,12 +875,10 @@ body.visual-mode .diff-split-row.focused .diff-split-side {
   cursor: pointer;
 }
 
-.line-comment-gutter:hover .line-add { opacity: 1; pointer-events: auto; }
+/* .line-add is invisible — the ::before on .line-num is the visible affordance */
 
 /* During drag */
 body.dragging { user-select: none; cursor: grabbing; }
-body.dragging .line-comment-gutter.drag-endpoint .line-add { opacity: 1; pointer-events: none; }
-body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { opacity: 0; pointer-events: none; }
 /* Blue connecting line in document comment gutter */
 .line-comment-gutter.drag-range::after {
   content: '';
@@ -902,18 +900,23 @@ body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { op
   line-height: inherit;
 }
 
+/* + prefix on line numbers — desktop: appears on row hover; touch: always visible */
+.line-num::before {
+  content: '+';
+  display: inline-block;
+  width: 1.2ch;
+  color: var(--crit-editor-fg-muted);
+  opacity: 0;
+  font-weight: 400;
+}
+.line-block:hover .line-num::before { opacity: 0.6; }
+/* Don't show + on lines that can't receive comments (diff-no-comment) */
+.line-block:has(.diff-no-comment) .line-num::before { display: none; }
+
+/* .line-add: kept in DOM for pointer events and drag state, but never rendered */
 .line-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  background: var(--crit-brand);
-  color: var(--crit-fg-on-brand);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
   opacity: 0;
   pointer-events: none;
 }
@@ -3787,6 +3790,8 @@ body.sidebar-resizing * {
 .file-header-toggle .toggle-btn {
   font-size: 10px;
   padding: 2px 8px;
+  min-width: 62px;
+  text-align: center;
 }
 
 /* Change navigation widget (document view) */
@@ -3972,6 +3977,18 @@ body.sidebar-resizing * {
   font-size: 12px;
   flex-shrink: 0;
 }
+/* + prefix on diff line numbers — desktop: appears on row hover; touch: always visible */
+.diff-gutter-num::before {
+  content: '+';
+  display: inline-block;
+  width: 1.2ch;
+  color: var(--crit-editor-fg-muted);
+  opacity: 0;
+  font-weight: 400;
+}
+/* Show on hover of the diff row or split side */
+.diff-line:hover .diff-gutter-num::before,
+.diff-split-side:hover .diff-gutter-num::before { opacity: 0.6; }
 /* Dedicated comment gutter column between line numbers and content */
 .diff-comment-gutter {
   position: relative;
@@ -3985,31 +4002,15 @@ body.sidebar-resizing * {
   justify-content: center;
   padding-top: 1px;
 }
+/* .diff-comment-btn: kept in DOM for pointer events and drag, but never rendered */
 .diff-comment-btn {
   width: 20px;
   height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  border: none;
-  background: var(--crit-brand);
-  color: var(--crit-fg-on-brand);
-  font-size: 14px;
-  font-weight: 700;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s;
-  padding: 0;
-  line-height: 1;
 }
-/* Show the + button when hovering the diff line or split side */
-.diff-line:hover .diff-comment-btn,
-.diff-split-side:hover .diff-comment-btn { opacity: 1; pointer-events: auto; }
-/* During drag: show the normal + button at endpoints, hide it on in-between lines */
-.diff-comment-gutter.drag-endpoint .diff-comment-btn { opacity: 1; pointer-events: none; z-index: 2; }
-.diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn { opacity: 0; pointer-events: none; }
+.diff-comment-gutter.drag-endpoint .diff-comment-btn { pointer-events: none; z-index: 2; }
 
 /* Blue connecting line between endpoints */
 .diff-comment-gutter.drag-range {
@@ -4414,10 +4415,7 @@ body.sidebar-resizing * {
 .line-comment-gutter.diff-no-comment {
   cursor: default;
 }
-.line-comment-gutter.diff-no-comment:hover .line-add {
-  opacity: 0;
-  pointer-events: none;
-}
+
 .diff-view .line-block.diff-added .line-content {
   background: var(--crit-diff-add-bg);
 }
@@ -5089,76 +5087,39 @@ body.sidebar-resizing * {
 
 /* ===== Mobile / Touch ===== */
 
-/* C1: On touch devices the gutter + button must always be visible —
+/* C1: On touch devices the ::before + prefix must always be visible —
    hover never fires on touch, so opacity:0 makes it permanently inaccessible. */
 @media (pointer: coarse) {
-  .line-add {
-    opacity: 1;
-    pointer-events: auto;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    color: var(--crit-editor-fg-muted);
-    font-weight: 400;
-  }
+  .line-num::before,
+  .diff-gutter-num::before { opacity: 1; }
 
-  /* On touch, .line-block is display:flex with no align-items set (defaults to
-     stretch), so .line-gutter stretches to the full row height. For tall blocks
-     (h1 headings, multi-line paragraphs) this makes .line-gutter as tall as the
-     content, which in turn makes the absolutely-positioned .line-comment-gutter
-     (top:0; bottom:0) span that same tall height, producing a large blue square.
-
-     Fix: align-self: flex-start collapses .line-gutter to its natural height
-     (just tall enough for the line number text + the 20px + button). The gutter
-     then sits flush at the top of each block, which is the correct position —
-     line numbers label the *start* of a block, not its vertical center.
-
-     We do NOT use align-self: center because for tall headings the number would
-     float at mid-block, appearing disconnected from the block's first line. */
+  /* On touch, .line-block is display:flex with align-items defaulting to
+     stretch, so .line-gutter stretches to the full row height. For tall blocks
+     (headings, multi-line paragraphs) this inflates the gutter height.
+     align-self: flex-start keeps the gutter at line-number height, flush
+     with the top of the block. */
   .document-wrapper .line-gutter {
     align-self: flex-start;
   }
 
-  /* On desktop .line-comment-gutter is right:-10px so the + button straddles
-     the gutter/content boundary — fine when opacity:0. On touch where it's
-     always visible, that puts a blue box on top of the first characters of
-     content. Anchor it to the left edge of the gutter instead, leaving the
-     right side free for the line number text. */
+  /* .line-comment-gutter is right:-10px on desktop. On touch, anchor it to
+     left:0 so it doesn't overlap the content area. */
   .document-wrapper .line-comment-gutter {
     right: auto;
     left: 0;
   }
 
-  /* Diff view + button: same reason as .line-add above. */
-  .diff-comment-btn {
-    opacity: 1;
-    pointer-events: auto;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    color: var(--crit-editor-fg-muted);
-    font-weight: 400;
-  }
-
-  /* In diff view, .line-comment-gutter is a flex sibling (position:relative)
-     with negative margins that overlap adjacent columns — fine when hidden,
-     but on touch the always-visible + bleeds into content. Reset margins and
-     left-align the + so it sits flush with the gutter, not centered. */
+  /* In diff view, .line-comment-gutter has negative margins that overlap
+     adjacent columns. Reset them on touch since the column is invisible. */
   .diff-view .line-comment-gutter,
   .diff-view-unified .line-comment-gutter {
     margin-left: 0;
     margin-right: 0;
-    justify-content: flex-start;
   }
-  /* Keep drag-range in-between lines hidden during an active drag (unchanged). */
-  body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add {
-    opacity: 0;
-    pointer-events: none;
-  }
-  body.dragging .diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn {
-    opacity: 0;
-    pointer-events: none;
-  }
+
+  /* On touch .line-add needs pointer-events so tapping the gutter area works. */
+  .line-add { pointer-events: auto; }
+  .diff-comment-btn { pointer-events: auto; }
 
   /* M1: Comment edit/reply/delete actions are hover-gated on desktop.
      On touch there is no hover, so always show them. */
