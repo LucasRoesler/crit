@@ -5114,10 +5114,15 @@ body.sidebar-resizing * {
     align-self: flex-start;
   }
 
-  /* The absolutely-positioned .line-comment-gutter uses top:0; bottom:0 to fill
-     its .line-gutter parent. After collapsing .line-gutter to natural height
-     above, the absolute element fills only that small height — so the tap target
-     matches the visible gutter area. No further change needed here. */
+  /* On desktop .line-comment-gutter is right:-10px so the + button straddles
+     the gutter/content boundary — fine when opacity:0. On touch where it's
+     always visible, that puts a blue box on top of the first characters of
+     content. Anchor it to the left edge of the gutter instead, leaving the
+     right side free for the line number text. */
+  .document-wrapper .line-comment-gutter {
+    right: auto;
+    left: 0;
+  }
 
   /* Diff view + button: same reason as .line-add above. */
   .diff-comment-btn {
