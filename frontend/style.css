@@ -5183,11 +5183,25 @@ body.sidebar-resizing * {
   .base-branch-picker { display: none; }
 }
 
-/* M7: Comment form left padding is aligned to the gutter column on desktop (56px).
-   On mobile the gutter is absent or much narrower, so the padding just wastes width. */
+/* M7: Narrow-screen overrides for gutter widths. */
 @media (max-width: 600px) {
+  /* Comment form: desktop padding-left aligns to the gutter column (~56px).
+     On mobile that wastes horizontal space. */
   .comment-form-wrapper {
     padding-left: 8px;
+  }
+
+  /* Diff gutter number columns: 50px each × 2 = 100px out of 375px.
+     Shrink to 32px each to give more room to code content. */
+  .diff-gutter-num {
+    min-width: 32px;
+    padding: 0 4px;
+  }
+
+  /* Unified diff comment/sign columns scale with the tighter gutters. */
+  .diff-container.unified .comment-block,
+  .diff-container.unified .comment-form-wrapper {
+    padding-left: 80px;
   }
 }
 
