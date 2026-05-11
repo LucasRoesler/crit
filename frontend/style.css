@@ -5095,6 +5095,12 @@ body.sidebar-resizing * {
   .line-add {
     opacity: 1;
     pointer-events: auto;
+    /* Subtle outline style: no fill, just a muted border. The solid brand
+       background is too bold when permanently visible on every line. */
+    background: transparent;
+    border: 1px solid var(--crit-editor-fg-muted);
+    color: var(--crit-editor-fg-muted);
+    font-weight: 400;
   }
 
   /* On touch, .line-block is display:flex with no align-items set (defaults to
