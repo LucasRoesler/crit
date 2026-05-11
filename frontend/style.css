@@ -5142,11 +5142,13 @@ body.sidebar-resizing * {
 
   /* In diff view, .line-comment-gutter is a flex sibling (position:relative)
      with negative margins that overlap adjacent columns — fine when hidden,
-     but on touch the always-visible + bleeds into content. Reset the margins. */
+     but on touch the always-visible + bleeds into content. Reset margins and
+     left-align the + so it sits flush with the gutter, not centered. */
   .diff-view .line-comment-gutter,
   .diff-view-unified .line-comment-gutter {
     margin-left: 0;
     margin-right: 0;
+    justify-content: flex-start;
   }
   /* Keep drag-range in-between lines hidden during an active drag (unchanged). */
   body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add {
