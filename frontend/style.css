@@ -4016,6 +4016,8 @@ body.sidebar-resizing * {
 /* Show on hover of the diff row or split side */
 .diff-line:hover .diff-gutter-num::before,
 .diff-split-side:hover .diff-gutter-num::before { opacity: 0.6; }
+/* Don't show + on empty gutter cells (spacer rows, unpopulated split sides) */
+.diff-gutter-num:empty::before { display: none; }
 /* Dedicated comment gutter column between line numbers and content */
 .diff-comment-gutter {
   position: relative;
