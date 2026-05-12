@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearAllComments, loadPage, switchToDocumentView, mdSection, goSection } from './helpers';
+import { clearAllComments, loadPage, switchToDocumentView, mdSection, goSection, getMdPath } from './helpers';
 
 test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
 
@@ -96,34 +96,33 @@ test('comment form textarea has font-size >= 16px on mobile', async ({ page }) =
 
 // M1: comment reply actions are visible without hover on touch
 test('comment reply actions are visible without hover on touch', async ({ page, request }) => {
-  const session = await (await request.get('/api/session')).json();
-  const md = (session.files as { path: string }[]).find((f: { path: string }) => f.path.endsWith('.md'));
-  if (!md) {
-    test.skip();
-    return;
-  }
+  const mdPath = await getMdPath(request);
 
-  await request.post(`/api/file/comments?path=${encodeURIComponent(md.path)}`, {
+  // Post a comment and a reply so .reply-actions renders.
+  const commentResp = await request.post(`/api/file/comments?path=${encodeURIComponent(mdPath)}`, {
     data: { start_line: 1, end_line: 1, body: 'test comment' },
   });
+  expect(commentResp.ok()).toBeTruthy();
+  const comment = await commentResp.json();
+
+  const replyResp = await request.post(
+    `/api/comment/${comment.id}/replies?path=${encodeURIComponent(mdPath)}`,
+    { data: { body: 'test reply' } },
+  );
+  expect(replyResp.ok()).toBeTruthy();
 
   await loadPage(page);
   await switchToDocumentView(page);
 
-  // Wait for comment card to render, then open a reply form to trigger the reply-actions bar.
-  const commentCard = page.locator('.comment-card').first();
+  const section = mdSection(page);
+  const commentCard = section.locator('.comment-card').first();
   await expect(commentCard).toBeVisible();
 
-  // The reply input trigger button at the bottom of the card produces reply-actions
-  // after an existing reply exists. Since we have no replies, check the comment
-  // action buttons instead — edit and delete are in .comment-actions.
-  // On touch (pointer:coarse) these should always be visible at opacity:1.
-  const actions = commentCard.locator('.comment-actions');
-  await expect(actions).toBeVisible();
-
-  // Verify the edit button inside actions has proper aria-label
-  const editBtn = actions.locator('[aria-label="Edit comment"]').first();
-  await expect(editBtn).toBeAttached();
+  // The M1 CSS sets .reply-actions { opacity: 1 } under @media (pointer: coarse).
+  // On hover-based (desktop) devices these are hidden until hover. Verify they are
+  // visible here — which proves the touch CSS is applied.
+  const replyActions = commentCard.locator('.reply-actions').first();
+  await expect(replyActions).toBeVisible();
 });
 
 // M2: theme-toggle buttons meet 44px touch target
