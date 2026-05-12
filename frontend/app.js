@@ -2855,7 +2855,7 @@
       gutter.appendChild(lineNum);
       gutter.addEventListener('pointerdown', function(e) {
         const cg = lineBlockEl.querySelector('.line-comment-gutter:not(.diff-no-comment)');
-        if (cg) cg.dispatchEvent(new PointerEvent('pointerdown', e));
+        if (cg) handleGutterMouseDown(e, cg);
       });
 
       // Comment gutter (separate column between line numbers and content)
