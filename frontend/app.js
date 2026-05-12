@@ -2637,7 +2637,7 @@
     gutter.appendChild(lineNum);
     gutter.addEventListener('pointerdown', function(e) {
       const cg = lineBlockEl.querySelector('.line-comment-gutter:not(.diff-no-comment)');
-      if (cg) cg.dispatchEvent(new PointerEvent('pointerdown', e));
+      if (cg) handleGutterMouseDown(e, cg);
     });
     lineBlockEl.insertBefore(gutter, lineBlockEl.firstChild);
 
@@ -3221,6 +3221,41 @@
 
   // Creates a dedicated comment gutter column element with a + button.
   // Returns the element to insert between line numbers and content.
+  function handleDiffBtnPointerDown(btn, e) {
+    if (e.button !== 0 && e.button !== undefined) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try { btn.setPointerCapture(e.pointerId); } catch (_) { /* may fail if pointer not active on btn */ }
+    const fp = btn.dataset.filePath;
+    const ln = parseInt(btn.dataset.lineNum);
+    const s = btn.dataset.side || '';
+    const vi = btn.dataset.visualIdx !== undefined ? parseInt(btn.dataset.visualIdx) : undefined;
+
+    diffDragState = { filePath: fp, side: s, anchorLine: ln, currentLine: ln, anchorVisualIdx: vi, currentVisualIdx: vi };
+    activeFilePath = fp;
+    selectionStart = ln;
+    selectionEnd = ln;
+    if (diffMode !== 'split' && vi !== undefined) {
+      unifiedVisualStart = vi;
+      unifiedVisualEnd = vi;
+    }
+    renderFileByPath(fp);
+
+    document.body.classList.add('dragging');
+    document.addEventListener('pointermove', handleDiffDragMove);
+    document.addEventListener('pointerup', handleDiffDragEnd);
+  }
+
+  // Delegate pointerdown from a line-number gutter to its sibling diff-comment-btn,
+  // so clicking the line number opens the comment form (matches GitHub PR behavior).
+  function attachDiffNumDelegate(numEl, btnRoot) {
+    numEl.style.cursor = 'pointer';
+    numEl.addEventListener('pointerdown', function(e) {
+      const btn = btnRoot.querySelector('.diff-comment-btn');
+      if (btn) handleDiffBtnPointerDown(btn, e);
+    });
+  }
+
   function makeDiffCommentGutter(filePath, lineNum, side, visualIdx) {
     const col = document.createElement('div');
     col.className = 'diff-comment-gutter';
@@ -3259,30 +3294,7 @@
     btn.dataset.lineNum = lineNum;
     btn.dataset.side = side || '';
     if (visualIdx !== undefined) btn.dataset.visualIdx = visualIdx;
-    btn.addEventListener('pointerdown', function(e) {
-      if (e.button !== 0 && e.button !== undefined) return;
-      e.preventDefault();
-      e.stopPropagation();
-      this.setPointerCapture(e.pointerId);
-      const fp = this.dataset.filePath;
-      const ln = parseInt(this.dataset.lineNum);
-      const s = this.dataset.side || '';
-      const vi = this.dataset.visualIdx !== undefined ? parseInt(this.dataset.visualIdx) : undefined;
-
-      diffDragState = { filePath: fp, side: s, anchorLine: ln, currentLine: ln, anchorVisualIdx: vi, currentVisualIdx: vi };
-      activeFilePath = fp;
-      selectionStart = ln;
-      selectionEnd = ln;
-      if (diffMode !== 'split' && vi !== undefined) {
-        unifiedVisualStart = vi;
-        unifiedVisualEnd = vi;
-      }
-      renderFileByPath(fp);
-
-      document.body.classList.add('dragging');
-      document.addEventListener('pointermove', handleDiffDragMove);
-      document.addEventListener('pointerup', handleDiffDragEnd);
-    });
+    btn.addEventListener('pointerdown', function(e) { handleDiffBtnPointerDown(this, e); });
     col.appendChild(btn);
     return col;
   }
@@ -3866,6 +3878,7 @@
         gutter.appendChild(newNum);
 
         const commentGutter = makeDiffCommentGutter(file.path, commentLineNum, lineSide, visualIdx);
+        if (commentLineNum) attachDiffNumDelegate(gutter, commentGutter);
 
         const sign = document.createElement('div');
         sign.className = 'diff-gutter-sign';
@@ -4061,6 +4074,7 @@
     let leftCommentGutter;
     if (left && left.num) {
       leftCommentGutter = makeDiffCommentGutter(file.path, left.num, 'old');
+      attachDiffNumDelegate(leftNum, leftCommentGutter);
       tagDiffLine(leftEl, file.path, left.num, 'old', row);
       if (commentRangeSet.has(left.num + ':old')) leftEl.classList.add('has-comment');
       const selSide = diffDragState ? diffDragState.side : (activeForms.length > 0 ? activeForms[activeForms.length - 1].side : null);
@@ -4100,6 +4114,7 @@
     if (right && right.num) {
       if (right.type === 'add' || right.type === 'context') {
         rightCommentGutter = makeDiffCommentGutter(file.path, right.num, '');
+        attachDiffNumDelegate(rightNum, rightCommentGutter);
       } else {
         rightCommentGutter = makeDiffCommentGutter(file.path, 0, '');
       }
@@ -4378,11 +4393,11 @@
   // ===== Gutter Drag Selection =====
   let dragState = null;
 
-  function handleGutterMouseDown(e) {
+  function handleGutterMouseDown(e, gutterOverride) {
     if (e.button !== 0 && e.button !== undefined) return;
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const gutter = e.currentTarget;
+    const gutter = gutterOverride || e.currentTarget;
+    try { gutter.setPointerCapture(e.pointerId); } catch (_) { /* pointer may not be capturable on synthetic targets */ }
     const startLine = parseInt(gutter.dataset.startLine);
     const endLine = parseInt(gutter.dataset.endLine);
     const filePath = gutter.dataset.filePath;
