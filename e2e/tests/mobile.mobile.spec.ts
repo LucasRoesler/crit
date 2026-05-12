@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { clearAllComments, loadPage, switchToDocumentView, mdSection, goSection, getMdPath } from './helpers';
 
-test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
-
 test.beforeEach(async ({ request }) => {
   await clearAllComments(request);
 });
