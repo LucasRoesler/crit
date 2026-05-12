@@ -392,9 +392,10 @@
     document.body.classList.toggle('hide-resolved', hideResolvedState);
   }
 
-  let wrapLines = true;
+  let wrapLines = getSetting('wrapLines', true);
   function setWrapLines(v) {
     wrapLines = !!v;
+    setSetting('wrapLines', wrapLines);
     const mc = document.querySelector('.main-content');
     if (mc) mc.dataset.wrap = wrapLines ? 'on' : 'off';
   }
@@ -748,6 +749,7 @@
   async function init() {
     initTheme();
     initWidth();
+    setWrapLines(wrapLines);
     initSidebarWidths();
 
     // Measure actual header height and set CSS variable for sticky offsets
