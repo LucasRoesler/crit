@@ -2331,6 +2331,24 @@
       });
     }
 
+    // Change navigation widget (file mode, both document and diff view)
+    if (session.mode !== 'git') {
+      const changeNav = document.createElement('div');
+      changeNav.className = 'change-nav';
+      changeNav.innerHTML =
+        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)">&#9650;</button>' +
+        '<span class="change-nav-label" data-file-path="' + escapeHtml(file.path) + '"></span>' +
+        '<button class="change-nav-btn" data-dir="1" title="Next change (n)">&#9660;</button>';
+      changeNav.addEventListener('click', function(e) {
+        const btn = e.target.closest('.change-nav-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        navigateToChange(parseInt(btn.dataset.dir));
+      });
+      header.appendChild(changeNav);
+    }
+
     // File comment button — not for orphaned files (no point adding comments to removed files)
     if (!file.orphaned) {
       const fileCommentBtn = document.createElement('button');
