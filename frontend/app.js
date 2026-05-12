@@ -2635,6 +2635,10 @@
     lineNum.className = 'line-num';
     lineNum.textContent = block.startLine;
     gutter.appendChild(lineNum);
+    gutter.addEventListener('pointerdown', function(e) {
+      const cg = lineBlockEl.querySelector('.line-comment-gutter:not(.diff-no-comment)');
+      if (cg) cg.dispatchEvent(new PointerEvent('pointerdown', e));
+    });
     lineBlockEl.insertBefore(gutter, lineBlockEl.firstChild);
 
     const contentEl = document.createElement('div');
@@ -2849,6 +2853,10 @@
       lineNum.className = 'line-num';
       lineNum.textContent = block.startLine;
       gutter.appendChild(lineNum);
+      gutter.addEventListener('pointerdown', function(e) {
+        const cg = lineBlockEl.querySelector('.line-comment-gutter:not(.diff-no-comment)');
+        if (cg) cg.dispatchEvent(new PointerEvent('pointerdown', e));
+      });
 
       // Comment gutter (separate column between line numbers and content)
       const commentGutter = document.createElement('div');

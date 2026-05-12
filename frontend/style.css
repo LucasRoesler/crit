@@ -900,7 +900,7 @@ body.dragging { user-select: none; cursor: grabbing; }
   line-height: inherit;
 }
 
-/* + prefix on line numbers — desktop: appears on row hover; touch: always visible */
+/* + prefix on line numbers — desktop: appears on gutter hover; touch: always visible */
 .line-num::before {
   content: '+';
   display: inline-block;
@@ -909,9 +909,11 @@ body.dragging { user-select: none; cursor: grabbing; }
   opacity: 0;
   font-weight: 400;
 }
-.line-block:hover .line-num::before { opacity: 0.6; }
+.line-gutter:hover .line-num::before { opacity: 0.6; }
 /* Don't show + on lines that can't receive comments (diff-no-comment) */
 .line-block:has(.diff-no-comment) .line-num::before { display: none; }
+/* Pointer cursor on commentable line gutters */
+.line-block:not(:has(.diff-no-comment)) .line-gutter { cursor: pointer; }
 
 /* .line-add: kept in DOM for pointer events and drag state, but never rendered */
 .line-add {
