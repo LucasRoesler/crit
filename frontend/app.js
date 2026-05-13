@@ -3266,12 +3266,13 @@
     document.addEventListener('pointerup', handleDiffDragEnd);
   }
 
-  // Delegate pointerdown from a line-number gutter to its sibling diff-comment-btn,
-  // so clicking the line number opens the comment form (matches GitHub PR behavior).
-  function attachDiffNumDelegate(numEl, btnRoot) {
-    numEl.style.cursor = 'pointer';
-    numEl.addEventListener('pointerdown', function(e) {
-      const btn = btnRoot.querySelector('.diff-comment-btn');
+  function attachDiffContainerDelegate(container) {
+    container.addEventListener('pointerdown', function(e) {
+      const num = e.target.closest('.diff-gutter-num');
+      if (!num) return;
+      const gutterEl = num.closest('.diff-gutter');
+      const searchRoot = num.closest('.diff-split-side') || (gutterEl && gutterEl.parentElement);
+      const btn = searchRoot && searchRoot.querySelector('.diff-comment-btn');
       if (btn) handleDiffBtnPointerDown(btn, e);
     });
   }
@@ -3806,6 +3807,7 @@
   function renderDiffUnified(file) {
     const container = document.createElement('div');
     container.className = 'diff-container unified';
+    attachDiffContainerDelegate(container);
 
     expandHunksForComments(file);
 
@@ -3898,7 +3900,10 @@
         gutter.appendChild(newNum);
 
         const commentGutter = makeDiffCommentGutter(file.path, commentLineNum, lineSide, visualIdx);
-        if (commentLineNum) attachDiffNumDelegate(gutter, commentGutter);
+        if (commentLineNum) {
+          oldNum.classList.add('has-comment-btn');
+          newNum.classList.add('has-comment-btn');
+        }
 
         const sign = document.createElement('div');
         sign.className = 'diff-gutter-sign';
@@ -3935,6 +3940,7 @@
   function renderDiffSplit(file) {
     const container = document.createElement('div');
     container.className = 'diff-container split';
+    attachDiffContainerDelegate(container);
 
     expandHunksForComments(file);
 
@@ -4094,7 +4100,7 @@
     let leftCommentGutter;
     if (left && left.num) {
       leftCommentGutter = makeDiffCommentGutter(file.path, left.num, 'old');
-      attachDiffNumDelegate(leftNum, leftCommentGutter);
+      leftNum.classList.add('has-comment-btn');
       tagDiffLine(leftEl, file.path, left.num, 'old', row);
       if (commentRangeSet.has(left.num + ':old')) leftEl.classList.add('has-comment');
       const selSide = diffDragState ? diffDragState.side : (activeForms.length > 0 ? activeForms[activeForms.length - 1].side : null);
@@ -4134,7 +4140,7 @@
     if (right && right.num) {
       if (right.type === 'add' || right.type === 'context') {
         rightCommentGutter = makeDiffCommentGutter(file.path, right.num, '');
-        attachDiffNumDelegate(rightNum, rightCommentGutter);
+        rightNum.classList.add('has-comment-btn');
       } else {
         rightCommentGutter = makeDiffCommentGutter(file.path, 0, '');
       }
