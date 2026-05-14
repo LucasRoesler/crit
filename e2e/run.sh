@@ -77,6 +77,8 @@ if [ $# -eq 0 ]; then
   PW5=$!
   npx playwright test --project=range-mode > "$PWLOGS/range.log" 2>&1 &
   PW6=$!
+  npx playwright test --project=mobile > "$PWLOGS/mobile.log" 2>&1 &
+  PW7=$!
 
   wait $PW1 || FAILED=1
   wait $PW2 || FAILED=1
@@ -84,6 +86,7 @@ if [ $# -eq 0 ]; then
   wait $PW4 || FAILED=1
   wait $PW5 || FAILED=1
   wait $PW6 || FAILED=1
+  wait $PW7 || FAILED=1
 
   # Print results — show summary for passing projects, full output for failures
   for f in "$PWLOGS"/*.log; do
