@@ -4040,6 +4040,9 @@ body.sidebar-resizing * {
   opacity: 0;
   pointer-events: none;
 }
+/* Re-enable pointer events on hover so the button is clickable when the row is hovered */
+.diff-line:hover .diff-comment-btn,
+.diff-split-side:hover .diff-comment-btn { pointer-events: auto; }
 .diff-comment-gutter.drag-endpoint .diff-comment-btn { pointer-events: none; z-index: 2; }
 
 /* Blue connecting line between endpoints */
