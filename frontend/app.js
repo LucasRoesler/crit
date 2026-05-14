@@ -2811,10 +2811,13 @@
     const rawBlocks = buildCodeLineBlocks(file);
     const saved = file.lineBlocks;
     file.lineBlocks = rawBlocks;
-    const view = renderDocumentView(file);
-    view.classList.add('code-document');
-    file.lineBlocks = saved;
-    return view;
+    try {
+      const view = renderDocumentView(file);
+      view.classList.add('code-document');
+      return view;
+    } finally {
+      file.lineBlocks = saved;
+    }
   }
 
   // ===== Document View (Markdown) =====
@@ -2825,6 +2828,7 @@
 
     const { commentsMap, rangeSet: commentRangeSet } = buildCommentIndices(file.comments);
 
+    // changeInfo is intentionally null for non-document callers (raw view, swapped lineBlocks).
     const changeInfo = file.viewMode === 'document' ? getChangeInfo(file) : null;
     // Build a map of afterLine -> deletion marker for quick lookup
     const deletionMarkerMap = {};
