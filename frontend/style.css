@@ -5141,7 +5141,7 @@ body.sidebar-resizing * {
   /* On touch .line-add needs pointer-events so tapping the gutter area works. */
   .line-add { pointer-events: auto; }
 
-  /* M1: Comment edit/reply/delete actions are hover-gated on desktop.
+  /* M1: Reply edit/delete actions (opacity:0 at rest, revealed on .comment-reply:hover).
      On touch there is no hover, so always show them. */
   .reply-actions {
     opacity: 1;
@@ -5260,7 +5260,7 @@ body.sidebar-resizing * {
     border-radius: 6px;
     padding: 6px 8px;
     cursor: pointer;
-    height: 36px;
+    min-height: 44px;
   }
   .mobile-file-picker-select:focus {
     outline: 2px solid var(--crit-brand);
