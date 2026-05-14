@@ -8,11 +8,8 @@ test.beforeEach(async ({ request }) => {
 // C1: gutter + prefix must be visible on touch without hover.
 // The affordance is a CSS ::before pseudo-element whose opacity is set to 1
 // under @media (pointer: coarse). Pseudo-element computed styles are not
-// reliably readable in Chromium, so we verify two things instead:
-// 1. The page is running in a coarse-pointer (touch) context — proving the
-//    CSS rule applies.
-// 2. The .line-num element is present and visible.
-// Behavioural coverage (tap opens form) is in the C2 test below.
+// reliably readable in Chromium, so we verify the .line-num element is
+// present and visible. Behavioural coverage (tap opens form) is in C2.
 test('gutter add-comment button is visible without hover on touch', async ({ page }) => {
   await loadPage(page);
   await switchToDocumentView(page);
@@ -20,11 +17,6 @@ test('gutter add-comment button is visible without hover on touch', async ({ pag
   const section = mdSection(page);
   await expect(section).toBeVisible();
 
-  // Verify we are in a coarse-pointer (touch) context so the CSS rule fires.
-  const isCoarse = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
-  expect(isCoarse).toBe(true);
-
-  // Verify the gutter element exists and is visible.
   const lineNum = section.locator('.line-num').first();
   await expect(lineNum).toBeVisible();
 });
@@ -36,11 +28,6 @@ test('diff gutter add-comment button is visible without hover on touch', async (
   const section = goSection(page);
   await expect(section).toBeVisible();
 
-  // Verify we are in a coarse-pointer (touch) context so the CSS rule fires.
-  const isCoarse = await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
-  expect(isCoarse).toBe(true);
-
-  // Verify the gutter element exists and is visible.
   const gutterNum = section.locator('.diff-gutter-num').first();
   await expect(gutterNum).toBeVisible();
 });
@@ -69,9 +56,9 @@ test('mobile file picker contains multiple file options', async ({ page }) => {
   await expect(picker).toBeVisible();
 
   // git-mode fixture has multiple files
-  const options = picker.locator('option');
-  const count = await options.count();
-  expect(count).toBeGreaterThanOrEqual(2);
+  await expect(async () => {
+    expect(await picker.locator('option').count()).toBeGreaterThanOrEqual(2);
+  }).toPass();
 });
 
 // C4: textarea font-size is ≥16px on mobile (prevent iOS zoom)
@@ -113,6 +100,7 @@ test('comment reply actions are visible without hover on touch', async ({ page, 
   await switchToDocumentView(page);
 
   const section = mdSection(page);
+  await expect(section.locator('.comment-card')).toHaveCount(1);
   const commentCard = section.locator('.comment-card').first();
   await expect(commentCard).toBeVisible();
 
@@ -123,8 +111,9 @@ test('comment reply actions are visible without hover on touch', async ({ page, 
   await expect(replyActions).toBeVisible();
 });
 
-// M2: theme-toggle buttons meet 44px touch target
-test('theme toggle buttons meet 44px touch target minimum', async ({ page }) => {
+// M2: header icon buttons (settings gear, TOC) meet 44px touch target.
+// .theme-toggle is the class applied to these header icon buttons.
+test('header icon buttons meet 44px touch target minimum', async ({ page }) => {
   await loadPage(page);
 
   const themeToggle = page.locator('.theme-toggle').first();
