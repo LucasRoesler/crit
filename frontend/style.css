@@ -4032,18 +4032,6 @@ body.sidebar-resizing * {
   justify-content: center;
   padding-top: 1px;
 }
-/* .diff-comment-btn: kept in DOM for pointer events and drag, but never rendered */
-.diff-comment-btn {
-  width: 20px;
-  height: 18px;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-}
-/* Re-enable pointer events on hover so the button is clickable when the row is hovered */
-.diff-line:hover .diff-comment-btn,
-.diff-split-side:hover .diff-comment-btn { pointer-events: auto; }
-.diff-comment-gutter.drag-endpoint .diff-comment-btn { pointer-events: none; z-index: 2; }
 
 /* Blue connecting line between endpoints */
 .diff-comment-gutter.drag-range {
@@ -5152,7 +5140,6 @@ body.sidebar-resizing * {
 
   /* On touch .line-add needs pointer-events so tapping the gutter area works. */
   .line-add { pointer-events: auto; }
-  .diff-comment-btn { pointer-events: auto; }
 
   /* M1: Comment edit/reply/delete actions are hover-gated on desktop.
      On touch there is no hover, so always show them. */

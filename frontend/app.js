@@ -3241,15 +3241,16 @@
 
   // Creates a dedicated comment gutter column element with a + button.
   // Returns the element to insert between line numbers and content.
-  function handleDiffBtnPointerDown(btn, e) {
+  function handleDiffGutterPointerDown(num, e) {
     if (e.button !== 0 && e.button !== undefined) return;
     e.preventDefault();
     e.stopPropagation();
-    try { btn.setPointerCapture(e.pointerId); } catch (_) { /* may fail if pointer not active on btn */ }
-    const fp = btn.dataset.filePath;
-    const ln = parseInt(btn.dataset.lineNum);
-    const s = btn.dataset.side || '';
-    const vi = btn.dataset.visualIdx !== undefined ? parseInt(btn.dataset.visualIdx) : undefined;
+    try { num.setPointerCapture(e.pointerId); } catch (_) { /* may fail if pointer not active */ }
+    const col = num.parentElement;
+    const fp = col.dataset.filePath;
+    const ln = parseInt(col.dataset.lineNum);
+    const s = col.dataset.side || '';
+    const vi = col.dataset.visualIdx !== undefined ? parseInt(col.dataset.visualIdx) : undefined;
 
     diffDragState = { filePath: fp, side: s, anchorLine: ln, currentLine: ln, anchorVisualIdx: vi, currentVisualIdx: vi };
     activeFilePath = fp;
@@ -3269,11 +3270,8 @@
   function attachDiffContainerDelegate(container) {
     container.addEventListener('pointerdown', function(e) {
       const num = e.target.closest('.diff-gutter-num');
-      if (!num) return;
-      const gutterEl = num.closest('.diff-gutter');
-      const searchRoot = num.closest('.diff-split-side') || (gutterEl && gutterEl.parentElement);
-      const btn = searchRoot && searchRoot.querySelector('.diff-comment-btn');
-      if (btn) handleDiffBtnPointerDown(btn, e);
+      if (!num || !num.classList.contains('has-comment-btn')) return;
+      handleDiffGutterPointerDown(num, e);
     });
   }
 
@@ -3281,6 +3279,11 @@
     const col = document.createElement('div');
     col.className = 'diff-comment-gutter';
     if (!lineNum) return col; // empty placeholder for lines without numbers
+
+    col.dataset.filePath = filePath;
+    col.dataset.lineNum = lineNum;
+    col.dataset.side = side || '';
+    if (visualIdx !== undefined) col.dataset.visualIdx = visualIdx;
 
     // During drag, show + at anchor and current line, blue line between
     const sideMatch = diffMode === 'split' ? diffDragState && diffDragState.side === (side || '') : true;
@@ -3308,15 +3311,6 @@
       }
     }
 
-    const btn = document.createElement('button');
-    btn.className = 'diff-comment-btn';
-    btn.textContent = '+';
-    btn.dataset.filePath = filePath;
-    btn.dataset.lineNum = lineNum;
-    btn.dataset.side = side || '';
-    if (visualIdx !== undefined) btn.dataset.visualIdx = visualIdx;
-    btn.addEventListener('pointerdown', function(e) { handleDiffBtnPointerDown(this, e); });
-    col.appendChild(btn);
     return col;
   }
 
@@ -4530,11 +4524,10 @@
     const diffGutters = section.querySelectorAll('.diff-comment-gutter');
     for (let j = 0; j < diffGutters.length; j++) {
       const col = diffGutters[j];
-      const btn = col.querySelector('.diff-comment-btn');
-      if (!btn) continue;
-      const lineNum = parseInt(btn.dataset.lineNum);
-      const side = btn.dataset.side || '';
-      const visualIdx = btn.dataset.visualIdx !== undefined ? parseInt(btn.dataset.visualIdx) : undefined;
+      if (!col.dataset.lineNum) continue;
+      const lineNum = parseInt(col.dataset.lineNum);
+      const side = col.dataset.side || '';
+      const visualIdx = col.dataset.visualIdx !== undefined ? parseInt(col.dataset.visualIdx) : undefined;
       if (!lineNum) continue;
 
       const sideMatch = diffMode === 'split' ? (diffDragState && diffDragState.side === side) : true;
