@@ -2338,9 +2338,9 @@
       const changeNav = document.createElement('div');
       changeNav.className = 'change-nav';
       changeNav.innerHTML =
-        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)">&#9650;</button>' +
+        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)" aria-label="Previous change">&#9650;</button>' +
         '<span class="change-nav-label" data-file-path="' + escapeHtml(file.path) + '"></span>' +
-        '<button class="change-nav-btn" data-dir="1" title="Next change (n)">&#9660;</button>';
+        '<button class="change-nav-btn" data-dir="1" title="Next change (n)" aria-label="Next change">&#9660;</button>';
       changeNav.addEventListener('click', function(e) {
         const btn = e.target.closest('.change-nav-btn');
         if (!btn) return;
