@@ -1685,6 +1685,7 @@
       const collapseBtn = document.createElement('button');
       collapseBtn.className = 'file-tree-collapse-btn';
       collapseBtn.title = 'Collapse all files';
+      collapseBtn.setAttribute('aria-label', 'Collapse all files');
       // Stacked chevron SVG
       collapseBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.22 3.22a.75.75 0 0 1 1.06 0L8 5.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 4.28a.75.75 0 0 1 0-1.06zm0 5a.75.75 0 0 1 1.06 0L8 10.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 9.28a.75.75 0 0 1 0-1.06z"/></svg>';
       collapseBtn.addEventListener('click', function() {
@@ -1696,7 +1697,9 @@
         for (let i = 0; i < sections.length; i++) {
           sections[i].open = !anyExpanded;
         }
-        collapseBtn.title = anyExpanded ? 'Expand all files' : 'Collapse all files';
+        const label = anyExpanded ? 'Expand all files' : 'Collapse all files';
+        collapseBtn.title = label;
+        collapseBtn.setAttribute('aria-label', label);
         collapseBtn.classList.toggle('all-collapsed', anyExpanded);
       });
       const headerEl = document.querySelector('.file-tree-header');
@@ -2343,9 +2346,9 @@
       const changeNav = document.createElement('div');
       changeNav.className = 'change-nav';
       changeNav.innerHTML =
-        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)">&#9650;</button>' +
+        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)" aria-label="Previous change">&#9650;</button>' +
         '<span class="change-nav-label" data-file-path="' + escapeHtml(file.path) + '"></span>' +
-        '<button class="change-nav-btn" data-dir="1" title="Next change (n)">&#9660;</button>';
+        '<button class="change-nav-btn" data-dir="1" title="Next change (n)" aria-label="Next change">&#9660;</button>';
       changeNav.addEventListener('click', function(e) {
         const btn = e.target.closest('.change-nav-btn');
         if (!btn) return;
@@ -5726,12 +5729,15 @@
     const collapseBtn = document.createElement('button');
     collapseBtn.className = 'comment-collapse-btn';
     collapseBtn.title = isCollapsed ? 'Expand comment' : 'Collapse comment';
+    collapseBtn.setAttribute('aria-label', isCollapsed ? 'Expand comment' : 'Collapse comment');
     collapseBtn.innerHTML = ICON_CHEVRON;
     collapseBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       card.classList.toggle('collapsed');
       commentCollapseOverrides[comment.id] = card.classList.contains('collapsed');
-      collapseBtn.title = card.classList.contains('collapsed') ? 'Expand comment' : 'Collapse comment';
+      const label = card.classList.contains('collapsed') ? 'Expand comment' : 'Collapse comment';
+      collapseBtn.title = label;
+      collapseBtn.setAttribute('aria-label', label);
     });
 
     const headerLeft = document.createElement('div');
@@ -5912,12 +5918,14 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', () => editComment(comment, filePath));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', () => deleteComment(comment.id, filePath));
 
@@ -5970,11 +5978,13 @@
       replyActions.className = 'reply-actions';
       const replyEditBtn = document.createElement('button');
       replyEditBtn.title = 'Edit';
+      replyEditBtn.setAttribute('aria-label', 'Edit reply');
       replyEditBtn.innerHTML = ICON_EDIT;
       replyEditBtn.addEventListener('click', function(e) { e.stopPropagation(); editReply(comment.id, reply.id, filePath); });
       const replyDeleteBtn = document.createElement('button');
       replyDeleteBtn.className = 'delete-btn';
       replyDeleteBtn.title = 'Delete';
+      replyDeleteBtn.setAttribute('aria-label', 'Delete reply');
       replyDeleteBtn.innerHTML = ICON_DELETE;
       replyDeleteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteReply(comment.id, reply.id, filePath); });
       replyActions.appendChild(replyEditBtn);
@@ -6456,6 +6466,7 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -6464,6 +6475,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -6912,6 +6924,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function() { deleteComment(comment.id, filePath); });
 
