@@ -531,7 +531,7 @@
         previousLineBlocks: null,
         tocItems: [],
         collapsed: true,
-        viewMode: (session.mode === 'git') ? 'diff' : 'document',
+        viewMode: (session.mode === 'git') ? 'diff' : (fi.file_type === 'markdown' ? 'raw' : 'document'),
         additions: fi.additions || 0,
         deletions: fi.deletions || 0,
         lazy: true,
@@ -600,7 +600,7 @@
       previousLineBlocks: null,
       tocItems: [],
       collapsed: fi.status === 'deleted' || fi.generated === true,
-      viewMode: (session.mode === 'git') ? 'diff' : 'document',
+      viewMode: (session.mode === 'git') ? 'diff' : (fi.file_type === 'markdown' ? 'raw' : 'document'),
       additions: fi.additions || 0,
       deletions: fi.deletions || 0,
       lazy: false,
@@ -2177,7 +2177,7 @@
 
     // Intercept click to fix scroll BEFORE collapse (avoids flicker)
     header.addEventListener('click', function(e) {
-      if (e.target.closest('.file-header-toggle') || e.target.closest('.file-header-viewed')) {
+      if (e.target.closest('.file-header-viewed')) {
         e.preventDefault();
         return;
       }
@@ -2292,18 +2292,32 @@
       });
     })(file.path);
 
-    // Add document/diff toggle for markdown files that have diff hunks
-    // Hide when diffActive is on (header-level rendered diff overrides per-file toggle)
-    if (file.fileType === 'markdown' && file.diffHunks && file.diffHunks.length > 0 && !diffActive) {
-      const toggle = document.createElement('div');
-      toggle.className = 'file-header-toggle';
-      toggle.innerHTML =
-        '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document">Document</button>' +
-        '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff">Diff</button>';
-      toggle.addEventListener('click', function(e) {
+    // Toggle for markdown files — rendered as a sibling of the header (not inside it)
+    // so it doesn't inherit the header's sticky background.
+    // Git mode: Document | Diff. Files mode: Raw | Rendered [| Diff].
+    const hasDiff = file.diffHunks && file.diffHunks.length > 0;
+    let toggleEl = null;
+    if (file.fileType === 'markdown' && !diffActive && (session.mode !== 'git' || hasDiff)) {
+      toggleEl = document.createElement('div');
+      toggleEl.className = 'file-header-toggle';
+      const pill = '<div class="toggle-pill" role="group" aria-label="View mode">';
+      const pillEnd = '</div>';
+      const ap = (mode) => ' aria-pressed="' + (file.viewMode === mode ? 'true' : 'false') + '"';
+      if (session.mode === 'git') {
+        toggleEl.innerHTML = pill +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Document</button>' +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff"' + ap('diff') + '>Diff</button>' +
+          pillEnd;
+      } else {
+        toggleEl.innerHTML = pill +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'raw' ? ' active' : '') + '" data-mode="raw"' + ap('raw') + '>Raw</button>' +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Rendered</button>' +
+          (hasDiff ? '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff"' + ap('diff') + '>Diff</button>' : '') +
+          pillEnd;
+      }
+      toggleEl.addEventListener('click', function(e) {
         const btn = e.target.closest('.toggle-btn');
         if (!btn) return;
-        e.preventDefault(); // Don't toggle the <details>
         const fileForms = getFormsForFile(file.path);
         fileForms.forEach(function(f) { removeForm(f.formKey); });
         if (activeFilePath === file.path) {
@@ -2313,25 +2327,24 @@
         file.viewMode = btn.dataset.mode;
         renderFileByPath(file.path);
       });
-      header.appendChild(toggle);
+    }
 
-      // Change navigation widget (file mode, both document and diff view)
-      if (session.mode !== 'git') {
-        const changeNav = document.createElement('div');
-        changeNav.className = 'change-nav';
-        changeNav.innerHTML =
-          '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)">&#9650;</button>' +
-          '<span class="change-nav-label" data-file-path="' + escapeHtml(file.path) + '"></span>' +
-          '<button class="change-nav-btn" data-dir="1" title="Next change (n)">&#9660;</button>';
-        changeNav.addEventListener('click', function(e) {
-          const btn = e.target.closest('.change-nav-btn');
-          if (!btn) return;
-          e.preventDefault();
-          e.stopPropagation();
-          navigateToChange(parseInt(btn.dataset.dir));
-        });
-        header.appendChild(changeNav);
-      }
+    // Change navigation widget (file mode, both document and diff view)
+    if (session.mode !== 'git') {
+      const changeNav = document.createElement('div');
+      changeNav.className = 'change-nav';
+      changeNav.innerHTML =
+        '<button class="change-nav-btn" data-dir="-1" title="Previous change (N)">&#9650;</button>' +
+        '<span class="change-nav-label" data-file-path="' + escapeHtml(file.path) + '"></span>' +
+        '<button class="change-nav-btn" data-dir="1" title="Next change (n)">&#9660;</button>';
+      changeNav.addEventListener('click', function(e) {
+        const btn = e.target.closest('.change-nav-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        navigateToChange(parseInt(btn.dataset.dir));
+      });
+      header.appendChild(changeNav);
     }
 
     // File comment button — not for orphaned files (no point adding comments to removed files)
@@ -2363,6 +2376,7 @@
     header.appendChild(viewedLabel);
 
     section.appendChild(header);
+    if (toggleEl) section.appendChild(toggleEl);
 
     // File-level comments container (between header and file body)
     // For orphaned files, render ALL comments here (no line blocks to anchor to)
@@ -2403,6 +2417,7 @@
     body.className = 'file-body';
 
     const showDiff = file.viewMode === 'diff' || (file.fileType === 'code' && session.mode === 'git');
+    const showRaw = file.viewMode === 'raw' && file.fileType === 'markdown';
 
     if (file.orphaned) {
       const placeholder = document.createElement('div');
@@ -2436,6 +2451,8 @@
       body.appendChild(renderDiffHunks(file));
     } else if (diffActive && file.previousLineBlocks && file.previousLineBlocks.length > 0) {
       body.appendChild(diffMode === 'split' ? renderRenderedDiffSplit(file) : renderRenderedDiffUnified(file));
+    } else if (showRaw) {
+      body.appendChild(renderRawMarkdown(file));
     } else {
       body.appendChild(renderDocumentView(file));
     }
@@ -2785,6 +2802,20 @@
     return { added: added, modified: modified, deletionPoints: deletionPoints };
   }
 
+  // ===== Raw View (Markdown shown as syntax-highlighted source lines) =====
+  function renderRawMarkdown(file) {
+    const rawBlocks = buildCodeLineBlocks(file);
+    const saved = file.lineBlocks;
+    file.lineBlocks = rawBlocks;
+    try {
+      const view = renderDocumentView(file);
+      view.classList.add('code-document');
+      return view;
+    } finally {
+      file.lineBlocks = saved;
+    }
+  }
+
   // ===== Document View (Markdown) =====
   function renderDocumentView(file) {
     const container = document.createElement('div');
@@ -2793,6 +2824,7 @@
 
     const { commentsMap, rangeSet: commentRangeSet } = buildCommentIndices(file.comments);
 
+    // changeInfo is intentionally null for non-document callers (raw view, swapped lineBlocks).
     const changeInfo = file.viewMode === 'document' ? getChangeInfo(file) : null;
     // Build a map of afterLine -> deletion marker for quick lookup
     const deletionMarkerMap = {};

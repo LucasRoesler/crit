@@ -2918,8 +2918,8 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   .file-tree-panel { display: none; }
   .sidebar-resize-handle { display: none !important; }
   #updateBtn { display: none !important; }
-  .file-header { padding: 8px 12px; }
-  .file-header-toggle { display: none; }
+  .file-header { padding: 8px 12px; flex-wrap: wrap; }
+  .file-header-toggle { padding-left: 36px; }
   .change-nav { display: none; }
   .scope-toggle { display: none !important; }
   .diff-mode-toggle { display: none !important; }
@@ -3787,18 +3787,31 @@ body.sidebar-resizing * {
 }
 .toggle-btn:hover:not(.active):not(:disabled) { background: var(--crit-editor-bg-hover); }
 
+/* .file-header-toggle is a sibling of the file header, sits between the header
+   and the file body. Uses the same centering as .document-wrapper so padding-left
+   aligns the pill with the content column (gutter width = 44px). */
 .file-header-toggle {
+  display: flex;
+  align-items: center;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 4px 0 4px 44px;
+  width: 100%;
+}
+.file-header-toggle .toggle-pill {
   display: inline-flex;
   background: var(--crit-editor-bg);
   border: 1px solid var(--crit-border);
   border-radius: 6px;
+  overflow: hidden;
   padding: 2px;
   gap: 1px;
-  margin-left: 4px;
 }
 .file-header-toggle .toggle-btn {
   font-size: 10px;
   padding: 2px 8px;
+  min-width: 62px;
+  text-align: center;
 }
 
 /* Change navigation widget (document view) */
