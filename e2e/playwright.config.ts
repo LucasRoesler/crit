@@ -6,6 +6,8 @@ const SINGLE_PORT = process.env.CRIT_TEST_SINGLE_PORT || '3125';
 const NOGIT_PORT = process.env.CRIT_TEST_NOGIT_PORT || '3126';
 const MULTI_PORT = process.env.CRIT_TEST_MULTI_PORT || '3127';
 const RANGE_PORT = process.env.CRIT_TEST_RANGE_PORT || '3128';
+// Mobile project re-uses the git-mode fixture — no separate server needed.
+const MOBILE_PORT = GIT_PORT;
 const debug = !!process.env.E2E_DEBUG;
 
 export default defineConfig({
@@ -37,10 +39,21 @@ export default defineConfig({
   projects: [
     {
       name: 'git-mode',
-      testMatch: /^(?!.*\.(filemode|singlefile|multifile|nogit|rangemode)\.).*\.spec\.ts$/,
+      testMatch: /^(?!.*\.(filemode|singlefile|multifile|nogit|rangemode|mobile)\.).*\.spec\.ts$/,
       use: {
         browserName: 'chromium',
         baseURL: `http://localhost:${GIT_PORT}`,
+      },
+    },
+    {
+      // Mobile project: touch emulation at 375×812 against the git-mode fixture.
+      name: 'mobile',
+      testMatch: /\.mobile\.spec\.ts$/,
+      use: {
+        browserName: 'chromium',
+        baseURL: `http://localhost:${MOBILE_PORT}`,
+        viewport: { width: 375, height: 812 },
+        hasTouch: true,
       },
     },
     {
