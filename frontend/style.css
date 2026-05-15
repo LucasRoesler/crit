@@ -2943,6 +2943,20 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   flex: 1;
   min-width: 0;
 }
+.main-content[data-wrap="off"] {
+  overflow-x: hidden;
+}
+.main-content[data-wrap="off"] .document-wrapper,
+.main-content[data-wrap="off"] .code-document,
+.main-content[data-wrap="off"] .diff-view,
+.main-content[data-wrap="off"] .diff-view-unified {
+  overflow-x: auto;
+}
+.main-content[data-wrap="off"] .line-content,
+.main-content[data-wrap="off"] .line-content.code-line {
+  white-space: pre;
+  overflow-wrap: normal;
+}
 
 /* ===== Sidebar Resize Handles ===== */
 /* Thin draggable strip on the inner edge of each sidebar. Default transparent;

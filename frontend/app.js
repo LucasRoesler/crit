@@ -392,6 +392,14 @@
     document.body.classList.toggle('hide-resolved', hideResolvedState);
   }
 
+  let wrapLines = getSetting('wrapLines', true);
+  function setWrapLines(v) {
+    wrapLines = !!v;
+    setSetting('wrapLines', wrapLines);
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.dataset.wrap = wrapLines ? 'on' : 'off';
+  }
+
   let diffCommit = '';
   let commitList = [];
   let diffActive = false; // rendered diff view toggle for file mode
@@ -743,6 +751,7 @@
   async function init() {
     initTheme();
     initWidth();
+    setWrapLines(wrapLines);
     initSidebarWidths();
 
     // Measure actual header height and set CSS variable for sticky offsets
@@ -9075,6 +9084,15 @@
     html += '</label>';
     html += '</div>';
 
+    // Line wrap row
+    html += '<div class="settings-display-row">';
+    html += '<span class="settings-display-label">Line wrap</span>';
+    html += '<label class="comments-panel-switch">';
+    html += '<input type="checkbox" id="wrapLinesToggle" aria-label="Line wrap"' + (wrapLines ? ' checked' : '') + '>';
+    html += '<span class="comments-panel-switch-track"><span class="comments-panel-switch-thumb"></span></span>';
+    html += '</label>';
+    html += '</div>';
+
     html += '</div>'; // close settings-display-group
 
     // Configuration section
@@ -9255,6 +9273,14 @@
       hideResolvedToggle.addEventListener('change', function() {
         setHideResolved(hideResolvedToggle.checked);
         renderAllFiles();
+      });
+    }
+
+    // Wire up line-wrap toggle
+    const wrapLinesToggle = pane.querySelector('#wrapLinesToggle');
+    if (wrapLinesToggle) {
+      wrapLinesToggle.addEventListener('change', function() {
+        setWrapLines(wrapLinesToggle.checked);
       });
     }
 
