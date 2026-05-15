@@ -1655,6 +1655,7 @@
     const panel = document.getElementById('fileTreePanel');
     if (files.length <= 1 && session.mode !== 'git') {
       panel.style.display = 'none';
+      renderMobileFilePicker();
       return;
     }
     panel.style.display = '';
@@ -1708,6 +1709,43 @@
 
     // Set up intersection observer for active file tracking
     setupTreeObserver();
+
+    renderMobileFilePicker();
+  }
+
+  function renderMobileFilePicker() {
+    const bar = document.getElementById('mobileFilePickerBar');
+    const select = document.getElementById('mobileFilePicker');
+    if (!bar || !select) return;
+
+    if (files.length <= 1) {
+      bar.classList.add('mobile-file-picker-hidden');
+      return;
+    }
+    bar.classList.remove('mobile-file-picker-hidden');
+
+    const currentValue = select.value;
+    select.innerHTML = '';
+    for (let i = 0; i < files.length; i++) {
+      const opt = document.createElement('option');
+      opt.value = files[i].path;
+      opt.textContent = files[i].path;
+      select.appendChild(opt);
+    }
+
+    if (currentValue && files.some(function(f) { return f.path === currentValue; })) {
+      select.value = currentValue;
+    }
+
+    if (!select._mobilePickerBound) {
+      select._mobilePickerBound = true;
+      select.addEventListener('change', function() {
+        const sectionEl = document.getElementById('file-section-' + select.value);
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+      });
+    }
   }
 
   function buildReviewConversationTreeRow() {

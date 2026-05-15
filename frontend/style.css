@@ -5094,3 +5094,58 @@ body.sidebar-resizing * {
   color: var(--crit-brand);
 }
 
+/* ===== Mobile / Touch ===== */
+
+/* 768px (tablet portrait) breakpoint — hide sidebars and secondary controls. */
+@media (max-width: 768px) {
+  .file-tree-panel { display: none; }
+  .sidebar-resize-handle { display: none !important; }
+  .comments-panel, .pr-panel { display: none !important; }
+  .scope-toggle { display: none !important; }
+  .diff-mode-toggle { display: none !important; }
+  .header-context { display: none; }
+  .base-branch-picker { display: none; }
+}
+
+/* Mobile file picker — shown instead of the hidden file-tree sidebar. */
+.mobile-file-picker-bar {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-file-picker-bar:not(.mobile-file-picker-hidden) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--crit-bg-card);
+    border-bottom: 1px solid var(--crit-border);
+    position: sticky;
+    top: var(--header-height, 49px);
+    z-index: 90;
+  }
+  .mobile-file-picker-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--crit-editor-fg-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .mobile-file-picker-select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--crit-font-mono);
+    font-size: 13px;
+    color: var(--crit-editor-fg);
+    background: var(--crit-editor-bg-elevated);
+    border: 1px solid var(--crit-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .mobile-file-picker-select:focus {
+    outline: 2px solid var(--crit-brand);
+    outline-offset: 1px;
+  }
+}
+
