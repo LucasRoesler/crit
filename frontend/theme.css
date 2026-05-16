@@ -179,6 +179,57 @@
   --author-5-bg: rgba(85,200,200,0.15);
   --author-5-border: rgba(85,200,200,0.35);
   --author-5-fg: #60d0d0;
+
+  /* ---- Design-mode chrome (R2: only iframe pane tokens; markers in Phase D) ---- */
+  --crit-design-iframe-frame: #2f3342;
+  --crit-design-iframe-bg:    #0e0f13;
+
+  /* ---- Phase C: composer, ancestor menu, mode toggle, toast ---- */
+  --crit-design-composer-bg:           #1a1c23;
+  --crit-design-composer-border:       #2f3342;
+  --crit-design-composer-input-bg:     #0e0f13;
+  --crit-design-composer-error-fg:     #f85149;
+  --crit-design-ancestor-menu-bg:      #1a1c23;
+  --crit-design-ancestor-menu-fg:      #e6e8ed;
+  --crit-design-ancestor-menu-hover-bg:#2f3342;
+  --crit-design-mode-btn-active-bg:    #2d7ff9;
+  --crit-design-mode-btn-active-fg:    #ffffff;
+  --crit-design-toast-bg:              #1a1c23;
+  --crit-design-toast-fg:              #e6e8ed;
+  --crit-design-toast-border:          #2f3342;
+
+  /* ---- Phase D: markers + drifted tray + re-anchor ---- */
+  --crit-design-marker-bg:             #3b82f6;
+  --crit-design-marker-fg:             #ffffff;
+  --crit-design-marker-border:         rgba(255,255,255,0.18);
+  --crit-design-marker-shadow:         0 1px 3px rgba(0,0,0,0.5);
+  --crit-design-marker-focus-ring:     #fbbf24;
+  --crit-design-drifted-recoverable-bg: rgba(251, 191, 36, 0.15);
+  --crit-design-drifted-recoverable-fg: #fbbf24;
+  --crit-design-drifted-lost-bg:        rgba(247, 118, 142, 0.15);
+  --crit-design-drifted-lost-fg:        #f7768e;
+  --crit-design-reanchor-active-outline: #f59e0b;
+
+  /* ---- Phase E: drift-this-round, focus, tooltip, marker flash, menu hl ---- */
+  --crit-design-focus-ring:             #fbbf24;
+  --crit-design-tooltip-bg:             #1c1f29;
+  --crit-design-tooltip-fg:             #e6e8ef;
+  --crit-design-tooltip-border:         #2f3342;
+  --crit-design-marker-flash-bg:        rgba(245, 158, 11, 0.7);
+  --crit-design-menu-highlight-bg:      rgba(59, 130, 246, 0.18);
+  --crit-design-menu-highlight-fg:      #e6e8ef;
+
+  /* ---- Org share modal ---- */
+  --crit-option-hover:       rgba(133, 170, 248, 0.06);
+  --crit-option-selected-bg: rgba(133, 170, 248, 0.08);
+  --crit-focus-ring:         rgba(133, 170, 248, 0.5);
+  --crit-green-hover:        #6ade7a;
+  --crit-vis-org-bg:         rgba(133, 170, 248, 0.10);
+  --crit-vis-org-fg:         #85aaf8;
+  --crit-vis-unlisted-bg:    rgba(255, 158, 100, 0.10);
+  --crit-vis-unlisted-fg:    #ff9e64;
+  --crit-vis-public-bg:      rgba(86, 211, 100, 0.10);
+  --crit-vis-public-fg:      #56d364;
 }
 
 /* ===== System preference: light ===== */
@@ -323,6 +374,57 @@
     --author-5-bg: rgba(14,110,110,0.10);
     --author-5-border: rgba(14,110,110,0.25);
     --author-5-fg: #0e6e6e;
+
+    /* ---- Design-mode chrome (R2: only iframe pane tokens; markers in Phase D) ---- */
+    --crit-design-iframe-frame: #d0d7de;
+    --crit-design-iframe-bg:    #f6f8fa;
+
+    /* ---- Phase C: composer, ancestor menu, mode toggle, toast ---- */
+    --crit-design-composer-bg:           #ffffff;
+    --crit-design-composer-border:       #d0d7de;
+    --crit-design-composer-input-bg:     #f6f8fa;
+    --crit-design-composer-error-fg:     #cf222e;
+    --crit-design-ancestor-menu-bg:      #ffffff;
+    --crit-design-ancestor-menu-fg:      #1f2328;
+    --crit-design-ancestor-menu-hover-bg:#eef2f7;
+    --crit-design-mode-btn-active-bg:    #2d7ff9;
+    --crit-design-mode-btn-active-fg:    #ffffff;
+    --crit-design-toast-bg:              #ffffff;
+    --crit-design-toast-fg:              #1f2328;
+    --crit-design-toast-border:          #d0d7de;
+
+    /* ---- Phase D: markers + drifted tray + re-anchor ---- */
+    --crit-design-marker-bg:             #2563eb;
+    --crit-design-marker-fg:             #ffffff;
+    --crit-design-marker-border:         rgba(0,0,0,0.15);
+    --crit-design-marker-shadow:         0 1px 2px rgba(0,0,0,0.25);
+    --crit-design-marker-focus-ring:     #b45309;
+    --crit-design-drifted-recoverable-bg: #fef3c7;
+    --crit-design-drifted-recoverable-fg: #78350f;
+    --crit-design-drifted-lost-bg:        #fee2e2;
+    --crit-design-drifted-lost-fg:        #7f1d1d;
+    --crit-design-reanchor-active-outline: #d97706;
+
+    /* ---- Phase E ---- */
+    --crit-design-focus-ring:             #b45309;
+    --crit-design-tooltip-bg:             #1a1d23;
+    --crit-design-tooltip-fg:             #ffffff;
+    --crit-design-tooltip-border:         rgba(0,0,0,0.15);
+    --crit-design-marker-flash-bg:        rgba(217, 119, 6, 0.6);
+    --crit-design-menu-highlight-bg:      #e0e7ff;
+    --crit-design-menu-highlight-fg:      #1a1d23;
+
+    /* ---- Org share modal ---- */
+    --crit-option-hover:       rgba(61, 106, 224, 0.04);
+    --crit-option-selected-bg: rgba(61, 106, 224, 0.06);
+    --crit-focus-ring:         rgba(61, 106, 224, 0.4);
+    --crit-green-hover:        #178a33;
+    --crit-vis-org-bg:         rgba(61, 106, 224, 0.08);
+    --crit-vis-org-fg:         #3d6ae0;
+    --crit-vis-unlisted-bg:    rgba(214, 122, 44, 0.08);
+    --crit-vis-unlisted-fg:    #d67a2c;
+    --crit-vis-public-bg:      rgba(26, 157, 59, 0.08);
+    --crit-vis-public-fg:      #1a9d3b;
   }
 }
 
@@ -467,6 +569,57 @@
   --author-5-bg: rgba(85,200,200,0.15);
   --author-5-border: rgba(85,200,200,0.35);
   --author-5-fg: #60d0d0;
+
+  /* ---- Design-mode chrome (R2: only iframe pane tokens; markers in Phase D) ---- */
+  --crit-design-iframe-frame: #2f3342;
+  --crit-design-iframe-bg:    #0e0f13;
+
+  /* ---- Phase C: composer, ancestor menu, mode toggle, toast ---- */
+  --crit-design-composer-bg:           #1a1c23;
+  --crit-design-composer-border:       #2f3342;
+  --crit-design-composer-input-bg:     #0e0f13;
+  --crit-design-composer-error-fg:     #f85149;
+  --crit-design-ancestor-menu-bg:      #1a1c23;
+  --crit-design-ancestor-menu-fg:      #e6e8ed;
+  --crit-design-ancestor-menu-hover-bg:#2f3342;
+  --crit-design-mode-btn-active-bg:    #2d7ff9;
+  --crit-design-mode-btn-active-fg:    #ffffff;
+  --crit-design-toast-bg:              #1a1c23;
+  --crit-design-toast-fg:              #e6e8ed;
+  --crit-design-toast-border:          #2f3342;
+
+  /* ---- Phase D: markers + drifted tray + re-anchor ---- */
+  --crit-design-marker-bg:             #3b82f6;
+  --crit-design-marker-fg:             #ffffff;
+  --crit-design-marker-border:         rgba(255,255,255,0.18);
+  --crit-design-marker-shadow:         0 1px 3px rgba(0,0,0,0.5);
+  --crit-design-marker-focus-ring:     #fbbf24;
+  --crit-design-drifted-recoverable-bg: rgba(251, 191, 36, 0.15);
+  --crit-design-drifted-recoverable-fg: #fbbf24;
+  --crit-design-drifted-lost-bg:        rgba(247, 118, 142, 0.15);
+  --crit-design-drifted-lost-fg:        #f7768e;
+  --crit-design-reanchor-active-outline: #f59e0b;
+
+  /* ---- Phase E ---- */
+  --crit-design-focus-ring:             #fbbf24;
+  --crit-design-tooltip-bg:             #1c1f29;
+  --crit-design-tooltip-fg:             #e6e8ef;
+  --crit-design-tooltip-border:         #2f3342;
+  --crit-design-marker-flash-bg:        rgba(245, 158, 11, 0.7);
+  --crit-design-menu-highlight-bg:      rgba(59, 130, 246, 0.18);
+  --crit-design-menu-highlight-fg:      #e6e8ef;
+
+  /* ---- Org share modal ---- */
+  --crit-option-hover:       rgba(133, 170, 248, 0.06);
+  --crit-option-selected-bg: rgba(133, 170, 248, 0.08);
+  --crit-focus-ring:         rgba(133, 170, 248, 0.5);
+  --crit-green-hover:        #6ade7a;
+  --crit-vis-org-bg:         rgba(133, 170, 248, 0.10);
+  --crit-vis-org-fg:         #85aaf8;
+  --crit-vis-unlisted-bg:    rgba(255, 158, 100, 0.10);
+  --crit-vis-unlisted-fg:    #ff9e64;
+  --crit-vis-public-bg:      rgba(86, 211, 100, 0.10);
+  --crit-vis-public-fg:      #56d364;
 }
 
 /* ===== Light (explicit) ===== */
@@ -610,6 +763,57 @@
   --author-5-bg: rgba(14,110,110,0.10);
   --author-5-border: rgba(14,110,110,0.25);
   --author-5-fg: #0e6e6e;
+
+  /* ---- Design-mode chrome (R2: only iframe pane tokens; markers in Phase D) ---- */
+  --crit-design-iframe-frame: #d0d7de;
+  --crit-design-iframe-bg:    #f6f8fa;
+
+  /* ---- Phase C: composer, ancestor menu, mode toggle, toast ---- */
+  --crit-design-composer-bg:           #ffffff;
+  --crit-design-composer-border:       #d0d7de;
+  --crit-design-composer-input-bg:     #f6f8fa;
+  --crit-design-composer-error-fg:     #cf222e;
+  --crit-design-ancestor-menu-bg:      #ffffff;
+  --crit-design-ancestor-menu-fg:      #1f2328;
+  --crit-design-ancestor-menu-hover-bg:#eef2f7;
+  --crit-design-mode-btn-active-bg:    #2d7ff9;
+  --crit-design-mode-btn-active-fg:    #ffffff;
+  --crit-design-toast-bg:              #ffffff;
+  --crit-design-toast-fg:              #1f2328;
+  --crit-design-toast-border:          #d0d7de;
+
+  /* ---- Phase D: markers + drifted tray + re-anchor ---- */
+  --crit-design-marker-bg:             #2563eb;
+  --crit-design-marker-fg:             #ffffff;
+  --crit-design-marker-border:         rgba(0,0,0,0.15);
+  --crit-design-marker-shadow:         0 1px 2px rgba(0,0,0,0.25);
+  --crit-design-marker-focus-ring:     #b45309;
+  --crit-design-drifted-recoverable-bg: #fef3c7;
+  --crit-design-drifted-recoverable-fg: #78350f;
+  --crit-design-drifted-lost-bg:        #fee2e2;
+  --crit-design-drifted-lost-fg:        #7f1d1d;
+  --crit-design-reanchor-active-outline: #d97706;
+
+  /* ---- Phase E ---- */
+  --crit-design-focus-ring:             #b45309;
+  --crit-design-tooltip-bg:             #1a1d23;
+  --crit-design-tooltip-fg:             #ffffff;
+  --crit-design-tooltip-border:         rgba(0,0,0,0.15);
+  --crit-design-marker-flash-bg:        rgba(217, 119, 6, 0.6);
+  --crit-design-menu-highlight-bg:      #e0e7ff;
+  --crit-design-menu-highlight-fg:      #1a1d23;
+
+  /* ---- Org share modal ---- */
+  --crit-option-hover:       rgba(61, 106, 224, 0.04);
+  --crit-option-selected-bg: rgba(61, 106, 224, 0.06);
+  --crit-focus-ring:         rgba(61, 106, 224, 0.4);
+  --crit-green-hover:        #178a33;
+  --crit-vis-org-bg:         rgba(61, 106, 224, 0.08);
+  --crit-vis-org-fg:         #3d6ae0;
+  --crit-vis-unlisted-bg:    rgba(214, 122, 44, 0.08);
+  --crit-vis-unlisted-fg:    #d67a2c;
+  --crit-vis-public-bg:      rgba(26, 157, 59, 0.08);
+  --crit-vis-public-fg:      #1a9d3b;
 }
 
 /* ===== highlight.js Dark Theme (Tokyo Night Dark) =====

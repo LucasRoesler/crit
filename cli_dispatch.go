@@ -24,6 +24,7 @@ var commandDispatch = map[string]func([]string){
 	"push":      runPush,
 	"comment":   runComment,
 	"review":    runReview,
+	"design":    runDesign,
 	"plan":      runPlan,
 	"plan-hook": func([]string) { runPlanHook() },
 	"auth":      runAuth,
@@ -39,6 +40,7 @@ func printHelp() {
 Usage:
   crit                                       Auto-detect changed files via git
   crit <file|dir> [...]                      Review specific files or directories
+  crit design <url>                          Review a running web app in design mode
   crit --pr <num|url>                        Review a GitHub pull request (range mode)
   crit pr <num|url>                          Review a GitHub pull request (alias for --pr)
   crit --range <baseSHA>..<headSHA>          Review a commit range (range mode)
@@ -125,6 +127,11 @@ Available keys:
   host              string    Listen host (default: 127.0.0.1; e.g. 0.0.0.0 for LAN)
   no_open           bool      Don't auto-open browser (default: false)
   share_url         string    Share service URL (global config only)
+  proxy_auth        bool      Proxy auth mode (config-only, no flag/env). false (default) —
+                              local server contacts crit-web directly. true — browser opens
+                              crit-web in a popup, authenticates there (e.g. via SSO), and
+                              proxies share/pull/unpublish/re-share through a MessagePort.
+                              Use when crit-web is behind an SSO reverse proxy.
   quiet             bool      Suppress status output (default: false)
   output            string    Output directory for review file
   author            string    Your name for comments (default: git config user.name)
