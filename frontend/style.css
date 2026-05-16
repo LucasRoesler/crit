@@ -47,6 +47,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1 1 0%;
+  min-width: 0;
 }
 
 .header-title {
@@ -95,9 +97,11 @@ body {
 }
 .header-chip.header-context .branch-icon { opacity: 1; }
 .header-chip.header-context #branchName {
-  max-width: 38ch;
+  flex: 1;
+  width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .branch-icon {
   display: flex;
@@ -270,6 +274,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .viewed-count {
@@ -2918,6 +2923,9 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   .file-tree-panel { display: none; }
   .sidebar-resize-handle { display: none !important; }
   #updateBtn { display: none !important; }
+  /* Compact the Approve button so it fits in a single header row */
+  #finishBtn { padding: 6px 10px; font-size: 12px; }
+  #shareBtn { display: none !important; }
   .file-header { padding: 8px 12px; flex-wrap: wrap; }
   .file-header-toggle { padding-left: 36px; }
   .change-nav { display: none; }
@@ -4025,6 +4033,8 @@ body.sidebar-resizing * {
 .diff-split-side:hover .diff-gutter-num::before { opacity: 0.6; }
 /* Don't show + on empty gutter cells (spacer rows, unpopulated split sides) */
 .diff-gutter-num:empty::before { display: none; }
+/* Don't show + on line numbers that aren't commentable (no diff context) */
+.diff-gutter-num:not(.has-comment-btn)::before { display: none; }
 .diff-gutter-num.has-comment-btn { cursor: pointer; }
 /* Dedicated comment gutter column between line numbers and content */
 .diff-comment-gutter {
@@ -5124,6 +5134,40 @@ body.sidebar-resizing * {
   .diff-mode-toggle { display: none !important; }
   .header-context { display: none; }
   .base-branch-picker { display: none; }
+}
+
+/* Mobile context bar — branch name + PR link, shown below the main header on mobile only. */
+.mobile-context-bar {
+  display: none;
+}
+@media (max-width: 600px) {
+  .mobile-context-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: var(--crit-bg-card);
+    border-bottom: 1px solid var(--crit-border);
+    font-size: 12px;
+    font-family: var(--crit-font-mono);
+  }
+  .mobile-context-branch {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--crit-brand);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .mobile-context-pr {
+    color: var(--crit-editor-fg-muted);
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+  .mobile-context-pr:hover { color: var(--crit-brand); }
 }
 
 /* Mobile file picker — shown instead of the hidden file-tree sidebar. */

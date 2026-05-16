@@ -539,7 +539,7 @@
         previousLineBlocks: null,
         tocItems: [],
         collapsed: true,
-        viewMode: (session.mode === 'git') ? 'diff' : (fi.file_type === 'markdown' ? 'raw' : 'document'),
+        viewMode: (session.mode === 'git') ? 'diff' : 'document',
         additions: fi.additions || 0,
         deletions: fi.deletions || 0,
         lazy: true,
@@ -608,7 +608,7 @@
       previousLineBlocks: null,
       tocItems: [],
       collapsed: fi.status === 'deleted' || fi.generated === true,
-      viewMode: (session.mode === 'git') ? 'diff' : (fi.file_type === 'markdown' ? 'raw' : 'document'),
+      viewMode: (session.mode === 'git') ? 'diff' : 'document',
       additions: fi.additions || 0,
       deletions: fi.deletions || 0,
       lazy: false,
@@ -831,6 +831,8 @@
     if (session.mode === 'git' && session.branch) {
       document.getElementById('branchContext').style.display = '';
       document.getElementById('branchName').textContent = session.branch;
+      document.getElementById('mobileContextBar').style.display = '';
+      document.getElementById('mobileContextBranch').textContent = session.branch;
       const branchCopyBtn = document.createElement('button');
       branchCopyBtn.className = 'header-copy-path';
       branchCopyBtn.setAttribute('aria-label', 'Copy branch name');
@@ -880,6 +882,13 @@
       prToggle.style.display = '';
       document.getElementById('prToggleNumber').textContent = '#' + configRes.pr_number;
       if (configRes.pr_is_draft) prToggle.classList.add('pr-toggle-draft');
+      // TODO(mobile): tapping the PR link currently opens GitHub directly because
+      // the PR panel is hidden on mobile. Follow-up: show the PR panel as a
+      // full-screen overlay with a Close button instead of linking out.
+      const mobileContextPr = document.getElementById('mobileContextPr');
+      mobileContextPr.textContent = '#' + configRes.pr_number;
+      mobileContextPr.href = configRes.pr_url;
+      mobileContextPr.style.display = '';
     }
 
     // Show diff mode toggle in git mode (always has diffs)
@@ -2341,8 +2350,8 @@
       });
     }
 
-    // Change navigation widget (file mode, both document and diff view)
-    if (session.mode !== 'git') {
+    // Change navigation widget (file mode, markdown files with inter-round diffs only)
+    if (file.fileType === 'markdown' && session.mode !== 'git' && hasDiff) {
       const changeNav = document.createElement('div');
       changeNav.className = 'change-nav';
       changeNav.innerHTML =
@@ -3258,7 +3267,7 @@
     e.preventDefault();
     e.stopPropagation();
     try { num.setPointerCapture(e.pointerId); } catch (_) { /* may fail if pointer not active */ }
-    const col = num.parentElement;
+    const col = num.closest('.diff-line, .diff-split-side').querySelector('.diff-comment-gutter');
     const fp = col.dataset.filePath;
     const ln = parseInt(col.dataset.lineNum);
     const s = col.dataset.side || '';

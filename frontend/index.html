@@ -102,6 +102,14 @@
   </div>
 </div>
 
+<!-- Mobile context bar: shows branch name + PR number below the main header.
+     TODO(mobile): branch name should tap to open the base-branch picker (same as desktop).
+     TODO(mobile): PR number currently links to GitHub; follow-up to show PR panel as overlay. -->
+<div class="mobile-context-bar" id="mobileContextBar" style="display:none">
+  <span class="mobile-context-branch" id="mobileContextBranch"></span>
+  <a class="mobile-context-pr" id="mobileContextPr" style="display:none"></a>
+</div>
+
 <div id="toc" class="toc toc-hidden">
   <div class="toc-header">
     <span>Contents</span>
