@@ -8,6 +8,7 @@ const MULTI_PORT = process.env.CRIT_TEST_MULTI_PORT || '3127';
 const RANGE_PORT = process.env.CRIT_TEST_RANGE_PORT || '3128';
 // Mobile project re-uses the git-mode fixture — no separate server needed.
 const MOBILE_PORT = GIT_PORT;
+const DESIGN_PORT = process.env.CRIT_TEST_DESIGN_PORT || '3129';
 const debug = !!process.env.E2E_DEBUG;
 
 export default defineConfig({
@@ -39,7 +40,7 @@ export default defineConfig({
   projects: [
     {
       name: 'git-mode',
-      testMatch: /^(?!.*\.(filemode|singlefile|multifile|nogit|rangemode|mobile)\.).*\.spec\.ts$/,
+      testMatch: /^(?!.*\.(filemode|singlefile|multifile|nogit|rangemode|mobile|designmode)\.).*\.spec\.ts$/,
       use: {
         browserName: 'chromium',
         baseURL: `http://localhost:${GIT_PORT}`,
@@ -98,6 +99,18 @@ export default defineConfig({
         baseURL: `http://localhost:${RANGE_PORT}`,
       },
     },
+    {
+      name: 'design-mode',
+      testMatch: /\.designmode\.spec\.ts$/,
+      use: {
+        browserName: 'chromium',
+        // NOTE: must be `localhost` (not 127.0.0.1) — the proxy injects the
+        // agent <script src="http://localhost:..."> tag, which the agent then
+        // uses as its postMessage targetOrigin. If the chrome page is loaded
+        // via 127.0.0.1, agent-ready postMessages get dropped (origin mismatch).
+        baseURL: `http://localhost:${DESIGN_PORT}/design`,
+      },
+    },
   ],
 
   webServer: [
@@ -141,6 +154,13 @@ export default defineConfig({
       url: `http://localhost:${RANGE_PORT}/api/session`,
       reuseExistingServer: true,
       timeout: 30_000,
+      stdout: 'pipe',
+    },
+    {
+      command: `bash setup-fixtures-designmode.sh ${DESIGN_PORT}`,
+      url: `http://127.0.0.1:${DESIGN_PORT}/api/session`,
+      reuseExistingServer: true,
+      timeout: 60_000,
       stdout: 'pipe',
     },
   ],

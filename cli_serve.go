@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type serverConfig struct {
 	noOpen             bool
 	quiet              bool
 	shareURL           string
+	proxyAuth          bool
 	authToken          string
 	outputDir          string
 	author             string
@@ -46,6 +48,9 @@ type serverConfig struct {
 	// when in PR/range focus, bypassing the local-fetch + git show path. Diff and
 	// changed-file lists still use local git.
 	remoteFiles bool
+
+	// designOrigin is the parsed --design-origin flag (design-mode daemon).
+	designOrigin string
 }
 
 // serverFlagSet holds the parsed flag values before config resolution.
@@ -55,6 +60,7 @@ type serverFlagSet struct {
 	noOpen      bool
 	showVersion bool
 	shareURL    string
+	proxyAuth   bool
 	outputDir   string
 	quiet       bool
 	noIgnore    bool
@@ -72,6 +78,9 @@ type serverFlagSet struct {
 	// remoteFiles is the parsed --remote flag. When true, file content reads
 	// in PR/range mode go through `gh api` instead of local git.
 	remoteFiles bool
+
+	// designOrigin is the parsed --design-origin flag (design-mode daemon).
+	designOrigin string
 }
 
 func parseServerFlags(args []string) serverFlagSet {
@@ -96,29 +105,31 @@ func parseServerFlags(args []string) serverFlagSet {
 	rangeSpec := fs.String("range", "", "Review a commit range, base..head (e.g. abc1234..def5678)")
 	scopeSpec := fs.String("scope", "", "Diff scope when reviewing a PR: layer (default) or full-stack")
 	remoteFiles := fs.Bool("remote", false, "Read PR file content via GitHub API instead of local git (avoids `git fetch`; requires gh)")
+	designOrigin := fs.String("design-origin", "", "")
 	fs.Usage = func() {
 		printHelp()
 	}
 	fs.Parse(args)
 
 	return serverFlagSet{
-		port:        *port,
-		host:        *host,
-		noOpen:      *noOpen,
-		showVersion: *showVersion,
-		shareURL:    *shareURL,
-		outputDir:   *outputDir,
-		quiet:       *quiet,
-		noIgnore:    *noIgnore,
-		baseBranch:  *baseBranch,
-		vcsOverride: *vcsFlag,
-		planDir:     *planDir,
-		planName:    *planName,
-		fileArgs:    fs.Args(),
-		prSpec:      *prSpec,
-		rangeSpec:   *rangeSpec,
-		scopeSpec:   *scopeSpec,
-		remoteFiles: *remoteFiles,
+		port:         *port,
+		host:         *host,
+		noOpen:       *noOpen,
+		showVersion:  *showVersion,
+		shareURL:     *shareURL,
+		outputDir:    *outputDir,
+		quiet:        *quiet,
+		noIgnore:     *noIgnore,
+		baseBranch:   *baseBranch,
+		vcsOverride:  *vcsFlag,
+		planDir:      *planDir,
+		planName:     *planName,
+		fileArgs:     fs.Args(),
+		prSpec:       *prSpec,
+		rangeSpec:    *rangeSpec,
+		scopeSpec:    *scopeSpec,
+		remoteFiles:  *remoteFiles,
+		designOrigin: *designOrigin,
 	}
 }
 
@@ -154,6 +165,7 @@ func applyConfigDefaults(sf *serverFlagSet, cfg Config) {
 		sf.noOpen = true
 	}
 	sf.shareURL = resolveShareURL(sf.shareURL, cfg, "")
+	sf.proxyAuth = cfg.ProxyAuth
 	if !sf.quiet && cfg.Quiet {
 		sf.quiet = true
 	}
@@ -171,8 +183,6 @@ func applyConfigDefaults(sf *serverFlagSet, cfg Config) {
 // resolveServerConfig parses flags, loads config files, and resolves the
 // final server configuration from all sources (CLI > env > config > defaults).
 // Returns nil when the command should exit early (e.g. --version).
-//
-//nolint:unparam // error return is future-proofing for config validation
 func resolveServerConfig(args []string) (*serverConfig, error) {
 	sf := parseServerFlags(args)
 
@@ -217,6 +227,7 @@ func resolveServerConfig(args []string) (*serverConfig, error) {
 		noOpen:             sf.noOpen,
 		quiet:              sf.quiet,
 		shareURL:           sf.shareURL,
+		proxyAuth:          sf.proxyAuth,
 		authToken:          cfg.AuthToken,
 		outputDir:          sf.outputDir,
 		author:             cfg.Author,
@@ -232,6 +243,7 @@ func resolveServerConfig(args []string) (*serverConfig, error) {
 		cfg:                cfg,
 		focus:              focus,
 		remoteFiles:        sf.remoteFiles,
+		designOrigin:       sf.designOrigin,
 	}, nil
 }
 
@@ -272,6 +284,9 @@ func preflightNoChangedFiles(sc *serverConfig) string {
 }
 
 func createSession(sc *serverConfig) (*Session, error) {
+	if sc.designOrigin != "" {
+		return createDesignSession(sc)
+	}
 	var session *Session
 	var err error
 	if len(sc.files) == 0 {
@@ -306,6 +321,71 @@ func createSession(sc *serverConfig) (*Session, error) {
 		session.loadCritJSON()
 	}
 	return session, nil
+}
+
+// createDesignSession builds a minimal session for design mode (no files,
+// no VCS).
+func createDesignSession(sc *serverConfig) (*Session, error) {
+	if sc.designOrigin == "" {
+		return nil, fmt.Errorf("createDesignSession: designOrigin is empty (internal bug; --design-origin must be set)")
+	}
+	cwd, _ := resolvedCWD()
+	s := &Session{
+		Mode:        "files",
+		RepoRoot:    cwd,
+		ReviewRound: 1,
+		ReviewType:  "design",
+		Origin:      sc.designOrigin,
+		CLIArgs:     []string{sc.designOrigin},
+		// awaitingFirstReview must be true so the daemon-client's first
+		// /api/review-cycle call does NOT fire SignalRoundComplete at boot.
+		// Without this gate the watcher bumps ReviewRound from 1 to 2 before
+		// the user authors a single pin, and AddDesignPin stamps the stale
+		// counter onto the first persisted comment. NewSessionFromFiles sets
+		// this for code-review mode; design mode hand-rolls the struct so we
+		// must set it explicitly.
+		awaitingFirstReview: true,
+		subscribers:         make(map[chan SSEEvent]struct{}),
+		roundComplete:       make(chan struct{}, 1),
+		Files:               []*FileEntry{},
+	}
+	if sc.reviewPath != "" {
+		s.ReviewFilePath = sc.reviewPath
+		// loadCritJSON returns a fresh CritJSON if the file doesn't exist,
+		// so a brand-new design daemon (no prior pins) lands on the empty
+		// path naturally. Read errors are non-fatal here: a corrupt review
+		// file will be reported by the next save.
+		if cj, err := loadCritJSON(sc.reviewPath); err == nil {
+			// Only honor a stored ReviewRound when the review file actually
+			// carries comments. A bare `review_round: N` with no comments
+			// (e.g. a prior session that round-completed once and was then
+			// abandoned, or comments cleared but the round counter not reset)
+			// is meaningless — a brand-new pin must ship against round 1, not
+			// against the stale counter. This mirrors clearAllCommentData's
+			// rationale for resetting ReviewRound on file deletion.
+			hasComments := len(cj.ReviewComments) > 0
+			if !hasComments {
+				for _, fe := range cj.Files {
+					if len(fe.Comments) > 0 {
+						hasComments = true
+						break
+					}
+				}
+			}
+			if hasComments && cj.ReviewRound > 0 {
+				s.ReviewRound = cj.ReviewRound
+			}
+			for path, fe := range cj.Files {
+				s.Files = append(s.Files, &FileEntry{
+					Path:     path,
+					FileType: "design-route",
+					Comments: fe.Comments,
+					Status:   fe.Status,
+				})
+			}
+		}
+	}
+	return s, nil
 }
 
 func applySessionOverrides(session *Session, sc *serverConfig) {
@@ -386,6 +466,9 @@ func serveSessionKey(sc *serverConfig) string {
 	if sc.planDir != "" {
 		return planSessionKey(cwd, sc.planName)
 	}
+	if sc.designOrigin != "" {
+		return designSessionKey(cwd, sc.designOrigin)
+	}
 	branch := ""
 	if vcs := DetectVCS(sc.vcsOverride); vcs != nil {
 		branch = vcs.CurrentBranch()
@@ -406,6 +489,11 @@ func checkStaleIntegrations(sc *serverConfig, srv *Server, cwd string) {
 	}
 }
 
+// designSessionArgsTag is the leading element of sessionEntry.Args for a
+// design daemon: ["design", "<origin>"]. Promoted to a const so the read
+// site (when one is added) can compare against the same identifier.
+const designSessionArgsTag = "design"
+
 func runServe(args []string) {
 	pipe := openReadyPipe()
 
@@ -424,7 +512,7 @@ func runServe(args []string) {
 	}
 	addr := listener.Addr().(*net.TCPAddr)
 
-	srv, err := NewServer(nil, frontendFS, sc.shareURL, sc.authToken, sc.author, version, addr.Port, sc.agentCmd)
+	srv, err := NewServer(nil, frontendFS, sc.shareURL, sc.proxyAuth, sc.authToken, sc.author, version, addr.Port, sc.agentCmd)
 	if err != nil {
 		daemonFatal(pipe, "Error creating server: %v", err)
 	}
@@ -446,16 +534,42 @@ func runServe(args []string) {
 	sc.reviewPath = resolveServeReviewPath(sc.outputDir, sc.planDir, key)
 	srv.reviewPath = sc.reviewPath
 	srv.cliArgs = sc.files
+	sessionArgs := sc.files
+	if sc.designOrigin != "" {
+		sessionArgs = []string{designSessionArgsTag, sc.designOrigin}
+	}
 	if err := writeSessionFile(key, sessionEntry{
 		PID:        os.Getpid(),
 		Port:       addr.Port,
 		CWD:        cwd,
-		Args:       sc.files,
+		Args:       sessionArgs,
 		Branch:     branch,
 		ReviewPath: sc.reviewPath,
 		StartedAt:  time.Now().UTC().Format(time.RFC3339),
 	}); err != nil {
 		daemonFatal(pipe, "Error writing session file: %v", err)
+	}
+
+	// Design-mode proxy server: bind on apiPort+1 and start serving.
+	var proxyLn net.Listener
+	var proxySrv *http.Server
+	if sc.designOrigin != "" {
+		pl, ps, err := bindProxyServer(sc.designOrigin, addr.Port)
+		if err != nil {
+			daemonFatal(pipe, "Error starting proxy server: %v", err)
+		}
+		proxyLn = pl
+		proxySrv = ps
+		go func() {
+			if err := proxySrv.Serve(pl); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("Proxy server error: %v", err)
+				// Defensive: Serve() closes its listener on shutdown, but on a
+				// non-graceful Serve error (e.g. accept loop dying) the
+				// listener may still be open. Close it so the bound port is
+				// released even if the daemon keeps running.
+				_ = pl.Close()
+			}
+		}()
 	}
 
 	httpServer := &http.Server{
@@ -473,7 +587,7 @@ func runServe(args []string) {
 	srv.SetShutdownCtx(ctx)
 
 	go func() {
-		if err := httpServer.Serve(listener); err != http.ErrServerClosed {
+		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("Server error: %v", err)
 			stop()
 		}
@@ -482,7 +596,17 @@ func runServe(args []string) {
 	signalReadiness(pipe, addr.Port)
 
 	if !sc.noOpen {
-		go openBrowser(fmt.Sprintf("http://localhost:%d", addr.Port))
+		// In design mode, route the auto-open to /design instead of /, so the
+		// browser lands on the design-review chrome (not the empty
+		// code-review shell). The parent CLI (runDesign) also kicks an open;
+		// macOS `open` is idempotent enough that the duplicate is harmless,
+		// but routing both to the same URL prevents the browser from briefly
+		// opening / first when the daemon spawns the open before runDesign.
+		openURL := fmt.Sprintf("http://localhost:%d", addr.Port)
+		if sc.designOrigin != "" {
+			openURL = fmt.Sprintf("http://localhost:%d/design", addr.Port)
+		}
+		go openBrowser(openURL)
 	}
 
 	// Prime the open-PR cache in the background. `gh pr list` can take
@@ -534,12 +658,30 @@ func runServe(args []string) {
 		return
 	}
 	applySessionOverrides(session, sc)
-	session.CLIArgs = sc.files
+	if sc.designOrigin != "" {
+		session.CLIArgs = []string{sc.designOrigin}
+	} else {
+		session.CLIArgs = sc.files
+	}
 
 	checkStaleIntegrations(sc, srv, cwd)
 
 	if !sc.noUpdateCheck && os.Getenv("CRIT_NO_UPDATE_CHECK") == "" {
 		go srv.CheckForUpdates()
+	}
+	if sc.designOrigin != "" && proxyLn != nil {
+		session.ProxyPort = proxyLn.Addr().(*net.TCPAddr).Port
+		session.ReviewType = "design"
+		session.Origin = sc.designOrigin
+	}
+	if session.ReviewType == "design" {
+		// Wire the design-mode round-start hook to broadcast over the same
+		// SSE channel handleEvents serves. The watcher fires this from a
+		// single goroutine after the round bump. Set before SetSession so
+		// the watcher goroutine never observes a partial assignment.
+		session.designRoundStart = func(_, next int) {
+			session.notify(SSEEvent{Type: "design-round-start", Round: next})
+		}
 	}
 	srv.SetSession(session)
 
@@ -581,9 +723,28 @@ func runServe(args []string) {
 	//   4. WriteFiles            — persist final review state.
 	session.Shutdown()
 
-	shutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	_ = httpServer.Shutdown(shutCtx)
+	// Each server gets its own 2s budget so a slow API shutdown can't starve
+	// the proxy (or vice versa). Run in parallel — there's no ordering
+	// dependency between them.
+	var shutWG sync.WaitGroup
+	shutWG.Add(1)
+	go func() {
+		defer shutWG.Done()
+		apiCtx, apiCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer apiCancel()
+		_ = httpServer.Shutdown(apiCtx)
+	}()
+	if proxySrv != nil {
+		shutWG.Add(1)
+		go func() {
+			defer shutWG.Done()
+			proxyCtx, proxyCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer proxyCancel()
+			_ = proxySrv.Shutdown(proxyCtx)
+		}()
+	}
+	shutWG.Wait()
+	_ = proxyLn // silenced: closure on Shutdown above
 
 	if !srv.WaitBackground(30 * time.Second) {
 		log.Printf("Warning: background goroutines did not drain within 30s; proceeding with shutdown")

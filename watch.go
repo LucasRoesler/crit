@@ -308,34 +308,83 @@ func (s *Session) watchFileMtimes(stop <-chan struct{}) {
 	}
 }
 
+// carryForwardComment builds a fresh Comment for the next review round from
+// an existing one. It explicitly enumerates every field rather than copying
+// the whole struct so that the set of fields that survive carry-forward is
+// reviewable in one place.
+//
+// Fields that are intentionally NOT copied (and why):
+//   - ID:             a new ID is minted by the caller (`newID`) so the new round
+//     gets its own identity; `s.trackDeletedComment` records the
+//     old ID so the persisted file does not resurrect both.
+//   - UpdatedAt:      stamped with `now`; carry-forward is itself a new touch.
+//   - CarriedForward: forced to true regardless of the source value.
+//
+// Every other field on Comment should be enumerated below. If a new field is
+// added to Comment and is round-scoped state (resolved metadata, GitHub-sync
+// metadata, focus tags, design-pin identity), it MUST be added here too —
+// otherwise it is silently dropped on round bump.
 func carryForwardComment(old Comment, newID string, now string) Comment {
-	return Comment{
-		ID:             newID,
-		StartLine:      old.StartLine,
-		EndLine:        old.EndLine,
-		Side:           old.Side,
-		Body:           old.Body,
-		Quote:          old.Quote,
-		QuoteOffset:    old.QuoteOffset,
-		Anchor:         old.Anchor,
-		Author:         old.Author,
-		Scope:          old.Scope,
-		CreatedAt:      old.CreatedAt,
-		UpdatedAt:      now,
-		Resolved:       old.Resolved,
+	c := Comment{
+		ID:          newID,
+		StartLine:   old.StartLine,
+		EndLine:     old.EndLine,
+		Side:        old.Side,
+		Body:        old.Body,
+		Quote:       old.Quote,
+		QuoteOffset: old.QuoteOffset,
+		Anchor:      old.Anchor,
+		Author:      old.Author,
+		Scope:       old.Scope,
+		CreatedAt:   old.CreatedAt,
+		UpdatedAt:   now,
+		Resolved:    old.Resolved,
+		// ResolvedRound records *which* round flipped Resolved false->true.
+		// It is round-scoped state that must survive carry-forward (paired
+		// with Resolved); without it, the timeline visibility filter for
+		// resolved-on-round-N falls back to the legacy round-1 default and
+		// resolved comments appear at the wrong point in the timeline.
 		ResolvedRound:  old.ResolvedRound,
 		CarriedForward: true,
 		Live:           old.Live,
 		ReviewRound:    old.ReviewRound,
 		Replies:        old.Replies,
 		GitHubID:       old.GitHubID,
+		// LastPushedBodyHash is the digest of Body at the most recent
+		// successful GitHub push; `crit push` uses it to decide POST vs
+		// PATCH vs skip. Must round-trip with GitHubID, otherwise every
+		// already-pushed comment looks "never pushed" after a round bump
+		// and gets re-PATCHed (or worse, double-posted).
+		LastPushedBodyHash: old.LastPushedBodyHash,
 		// Preserve focus-scope tags from the original. Carrying forward must
 		// preserve the comment's authored scope; restamping with the current
 		// focus would silently strip scope tags across rounds.
 		HeadSHA:   old.HeadSHA,
 		DiffScope: old.DiffScope,
 		FocusKey:  old.FocusKey,
+
+		// Design-mode pin identity. DOMAnchor is the durable anchor for
+		// design pins (no line remapping applies); PinNumber is a stable,
+		// review-scoped reference. Both must round-trip across
+		// handleRoundComplete*, otherwise design pins silently disappear
+		// on round bump.
+		UserID:    old.UserID,
+		DOMAnchor: old.DOMAnchor,
+		PinNumber: old.PinNumber,
 	}
+	// Drift fields are carried forward only for code-review comments. Design
+	// pins (DOMAnchor != nil) are never drifted: the live DOM can change
+	// without any code change (Phoenix LiveView re-renders, framework
+	// hydration, etc.), so any drift bit on a design pin is a false positive
+	// and is dropped here. carryForwardFileComments already skips drift
+	// detection for design pins; this guards the no-PreviousContent path
+	// (carryForwardAllComments) which would otherwise propagate stale bits
+	// from earlier rounds.
+	if old.DOMAnchor == nil {
+		c.Drifted = old.Drifted
+		c.DriftedOnRound = old.DriftedOnRound
+	}
+	return c
 }
 
 // carryForwardAllComments carries forward all PreviousComments at their original positions.
@@ -439,8 +488,14 @@ func (s *Session) handleRoundCompleteGit() {
 	s.restoreOrphanedComments()
 
 	s.mu.Lock()
+	prev := s.ReviewRound
 	s.ReviewRound++
+	rt := s.ReviewType
+	next := s.ReviewRound
 	s.mu.Unlock()
+	if rt == "design" && s.designRoundStart != nil {
+		s.designRoundStart(prev, next)
+	}
 
 	// Refresh diffs for all files
 	s.RefreshDiffs()
@@ -480,8 +535,14 @@ func (s *Session) handleRoundCompleteFiles() {
 	sidecarPath := reviewPathsFor(s.critJSONPath()).Snapshots
 	sf := SnapshotsFile{RoundSnapshots: cloneRoundSnapshots(s.RoundSnapshots)}
 	s.rereadFileContents(true)
+	prev := s.ReviewRound
 	s.ReviewRound++
+	rt := s.ReviewType
+	nextR := s.ReviewRound
 	s.mu.Unlock()
+	if rt == "design" && s.designRoundStart != nil {
+		s.designRoundStart(prev, nextR)
+	}
 
 	// File I/O off the hot path. Drift between review.json and snapshots.json
 	// is benign (degrades to "no timeline available").
@@ -811,6 +872,14 @@ func (s *Session) carryForwardFileComments(f *FileEntry) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	for _, c := range prevComments {
 		s.trackDeletedComment(f.Path, c.ID)
+
+		// Design pins use DOMAnchor for positioning; skip line remapping.
+		if c.DOMAnchor != nil {
+			carried := carryForwardComment(c, randomCommentID(), now)
+			carried.DOMAnchor = c.DOMAnchor
+			f.Comments = append(f.Comments, carried)
+			continue
+		}
 
 		// File-level and old-side comments keep their original positions.
 		// File-level comments have no line references. Old-side comments
