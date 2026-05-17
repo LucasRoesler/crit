@@ -168,6 +168,7 @@
       return {
         width: false,         // width pill is file-mode only
         hideResolved: true,
+        wrapLines: true,
         update: true,
         account: true,
         agent: true,
@@ -179,6 +180,7 @@
     return {
       width: true,
       hideResolved: true,
+      wrapLines: true,
       update: true,
       account: true,
       agent: true,
@@ -265,6 +267,18 @@
       html += '<span class="settings-display-label">Hide resolved comments</span>';
       html += '<label class="comments-panel-switch">';
       html += '<input type="checkbox" id="hideResolvedToggle" aria-label="Hide resolved comments"' + (hideResolved ? ' checked' : '') + '>';
+      html += '<span class="comments-panel-switch-track"><span class="comments-panel-switch-thumb"></span></span>';
+      html += '</label>';
+      html += '</div>';
+    }
+
+    // Line wrap row
+    if (show.wrapLines && hooks.getWrapLines) {
+      var wrapLinesOn = !!hooks.getWrapLines();
+      html += '<div class="settings-display-row">';
+      html += '<span class="settings-display-label">Line wrap</span>';
+      html += '<label class="comments-panel-switch">';
+      html += '<input type="checkbox" id="wrapLinesToggle" aria-label="Line wrap"' + (wrapLinesOn ? ' checked' : '') + '>';
       html += '<span class="comments-panel-switch-track"><span class="comments-panel-switch-thumb"></span></span>';
       html += '</label>';
       html += '</div>';
@@ -460,6 +474,16 @@
         hrToggle.addEventListener('change', function () {
           if (hooks.setHideResolved) hooks.setHideResolved(hrToggle.checked);
           if (hooks.onHideResolvedChange) hooks.onHideResolvedChange();
+        });
+      }
+    }
+
+    if (show.wrapLines && hooks.getWrapLines) {
+      var wlToggle = pane.querySelector('#wrapLinesToggle');
+      if (wlToggle) {
+        wlToggle.addEventListener('change', function () {
+          if (hooks.setWrapLines) hooks.setWrapLines(wlToggle.checked);
+          if (hooks.onWrapChange) hooks.onWrapChange();
         });
       }
     }

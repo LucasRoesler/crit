@@ -5085,12 +5085,14 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', () => editComment(comment, filePath));
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', () => deleteComment(comment.id, filePath));
 
@@ -5143,11 +5145,13 @@
       replyActions.className = 'reply-actions';
       const replyEditBtn = document.createElement('button');
       replyEditBtn.title = 'Edit';
+      replyEditBtn.setAttribute('aria-label', 'Edit reply');
       replyEditBtn.innerHTML = ICON_EDIT;
       replyEditBtn.addEventListener('click', function(e) { e.stopPropagation(); editReply(comment.id, reply.id, filePath); });
       const replyDeleteBtn = document.createElement('button');
       replyDeleteBtn.className = 'delete-btn';
       replyDeleteBtn.title = 'Delete';
+      replyDeleteBtn.setAttribute('aria-label', 'Delete reply');
       replyDeleteBtn.innerHTML = ICON_DELETE;
       replyDeleteBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteReply(comment.id, reply.id, filePath); });
       replyActions.appendChild(replyEditBtn);
@@ -5628,6 +5632,7 @@
 
     const editBtn = document.createElement('button');
     editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit comment');
     editBtn.innerHTML = ICON_EDIT;
     editBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -5636,6 +5641,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -6083,6 +6089,7 @@
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete comment');
     deleteBtn.innerHTML = ICON_DELETE;
     deleteBtn.addEventListener('click', function() { deleteComment(comment.id, filePath); });
 
@@ -8597,6 +8604,9 @@
           getHideResolved: isHideResolved,
           setHideResolved: setHideResolved,
           onHideResolvedChange: function () { renderAllFiles(); },
+          getWrapLines: function () { return wrapLines; },
+          setWrapLines: setWrapLines,
+          onWrapChange: function () {},
           hasActivePendingUpdates: hasActivePendingUpdates,
           announceCopy: announceCopy,
           escape: escapeHtml,
