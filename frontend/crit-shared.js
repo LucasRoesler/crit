@@ -1,22 +1,23 @@
 // crit-shared.js — helpers consumed by both app.js (code review) and
-// design-mode.js (design review). Vanilla JS, no module loader.
+// live-mode.js (live review). Vanilla JS, no module loader.
 //
 // Exports onto window.crit.shared. Order of <script> tags in index.html
-// guarantees this file loads before app.js or design-mode.js.
+// guarantees this file loads before app.js or live-mode.js.
 
 (function () {
   'use strict';
 
-  // escapeHTML mirrors app.js's escapeHtml (lowercase h) semantics: escapes
-  // &, <, >, " — not single quotes. Phase B does not touch app.js, so we
-  // duplicate the logic here under the camelCase public name.
+  // escapeHTML — canonical HTML escaper for the entire frontend. Escapes
+  // &, <, >, ", and ' (single quote). Safe in both content and attribute
+  // contexts.
   function escapeHTML(s) {
     if (s === null || s === undefined) return '';
     return String(s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   async function fetchJSON(url, opts) {
@@ -100,7 +101,7 @@
   }
 
   // Updates the navbar comment-count indicator. Both code-review (app.js)
-  // and design-mode (design-mode.js) call this so the pill, classes, and
+  // and live-mode (live-mode.js) call this so the pill, classes, and
   // tooltip stay in lockstep — drift here is the navbar inconsistency the
   // user keeps noticing. Each mode still owns its own filter-pill counts,
   // since the filter pill itself isn't shared.
@@ -144,9 +145,9 @@
 
   // ===== Toast =====
   // Unified mini-toast helper used by both code-review (app.js) and
-  // design-mode (design-mode.js). Replaces the prior `showMiniToast`
+  // live-mode (live-mode.js). Replaces the prior `showMiniToast`
   // (app.js, transition-based, rule-compliant) and `showToast`
-  // (design-mode.js, called .remove() directly — violated frontend-js.md
+  // (live-mode.js, called .remove() directly — violated frontend-js.md
   // "Never call .remove() on elements with CSS exit animations").
   //
   // API: showToast(message, opts?) -> dismiss()
@@ -212,7 +213,7 @@
 
   // ===== runFinishReview =====
   // Shared finish-review flow used by both code-review (app.js) and
-  // design-mode (design-mode.js). POSTs /api/finish, parses
+  // live-mode (live-mode.js). POSTs /api/finish, parses
   // {approved, prompt}, drives the #waitingDialog modal (heading,
   // message, prompt body, "Copy prompt" affordance), replays the
   // approved-checkmark CSS animation via the offsetWidth reflow trick,
@@ -223,7 +224,7 @@
   //   onWaiting()        — called after a non-approved finish (caller flips uiState).
   //   onApproved(prompt) — called after an approved finish. Receives the prompt string.
   //   onError(err)       — error surfacer (caller decides toast vs. console). Default: console.error.
-  //   dedup              — optional inflight flag (window.crit.design.inflight.makeInFlightFlag()).
+  //   dedup              — optional inflight flag (window.crit.live.inflight.makeInFlightFlag()).
   //                        If provided and busy, the call is a no-op (returns null).
   //
   // Returns: Promise<{approved, prompt} | null>. Rejects only when onError is not
@@ -272,7 +273,7 @@
         if (approved) {
           messageEl.textContent =
             'Your agent has been notified — no further action needed. ' +
-            'You can close this tab whenever you’re ready.';
+            ‘You can close this tab whenever you\’re ready.’;
         } else {
           messageEl.textContent =
             "Agent notified. Copy the prompt below if it wasn’t listening.";
@@ -300,7 +301,7 @@
   // Shared base poll for the deferred-init readiness gate. The server
   // returns 503 until SetSession() completes — every endpoint other
   // than /api/health is gated. Callers (code-review init,
-  // design-mode init) wrap this with their own UI hook via
+  // live-mode init) wrap this with their own UI hook via
   // onProgress(elapsedMs).
   //
   // opts:
@@ -365,10 +366,10 @@
 
   // ===== installSidebarResize =====
   // Shared sidebar/panel pointer-drag resize helper. Used by code-review
-  // (app.js: file-tree handle, comments-panel handle) and design-mode
+  // (app.js: file-tree handle, comments-panel handle) and live-mode
   // (panel-render: comments-panel handle).
   //
-  // Owns all the bits the bare-bones design-mode implementation was missing:
+  // Owns all the bits the bare-bones live-mode implementation was missing:
   //   - Pointer capture (drag survives leaving the handle / window).
   //   - body.sidebar-resizing class — locks the cursor and disables text
   //     selection page-wide so the cursor doesn't flicker when the pointer
@@ -600,13 +601,14 @@
   var _lastTip = '';
   var _baseTips = [
     'Press <kbd>?</kbd> to see all keyboard shortcuts.',
-    'Comments support full Markdown.',
     'Press <kbd>@</kbd> to reference other files in your comments.',
     'Select text and press <kbd>c</kbd> to comment on your selection.',
-    'Use the filter pill to toggle between open and resolved comments.',
     'Use <kbd>crit pull</kbd> to load existing GitHub PR comments into your local review.',
     'Use <kbd>crit push</kbd> to post your comments as a GitHub PR review. Add <kbd>--dry-run</kbd> to preview first.',
-    'Pin comments persist across rounds until you resolve them.',
+    'Comments persist across rounds until you resolve them.',
+    'Run <kbd>crit</kbd> with a URL to review your local website visually.',
+    'Run <kbd>crit overview.html</kbd> to review an artifact HTML file visually.',
+    'Ask your agent to review your work with Crit and leave comments with it.',
     'Enjoying Crit? A GitHub star or sharing it with colleagues helps a lot!',
   ];
 

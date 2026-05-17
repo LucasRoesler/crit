@@ -1,17 +1,17 @@
 // crit-settings-panes.js — shared renderers for the Settings overlay.
 // Owns ALL three tabs (Settings / Shortcuts / About) so code review and
-// design mode mount the same panes without duplication. Mode-specific
+// live mode mount the same panes without duplication. Mode-specific
 // behaviour is injected via the `hooks` and `show` options on
 // renderSettingsTab — see below.
 //
 // Exports on window.crit.settingsPanes:
 //   renderShortcutsPane(pane, opts)
-//     opts.mode : 'code-review' | 'design' (default: 'code-review')
-//                  Filters entries by their `modes` array so design users
+//     opts.mode : 'code-review' | 'live' (default: 'code-review')
+//                  Filters entries by their `modes` array so live users
 //                  don't see code-review-only bindings (j/k, ]/[, c/e/d, …).
 //   renderAboutPane(pane, cfg, sessionInfo)
 //   renderSettingsTab(pane, opts)
-//     opts.mode    : 'code-review' | 'design'
+//     opts.mode    : 'code-review' | 'live'
 //     opts.cfg     : /api/config response or {}
 //     opts.show    : { width, hideResolved, update, account, agent,
 //                       integration, share } — booleans, defaulted from mode
@@ -27,25 +27,20 @@
 (function () {
   'use strict';
 
-  function escapeHTML(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
+  // escapeHTML — delegates to the canonical window.crit.shared.escapeHTML.
+  // crit-shared.js loads before this file per index.html script order.
+  var escapeHTML = window.crit.shared.escapeHTML;
 
   // Each shortcut declares which modes it actually fires in. The renderer
-  // filters out entries that don't apply to the current mode so design-mode
+  // filters out entries that don't apply to the current mode so live-mode
   // users aren't shown bindings that do nothing for them. Investigated
   // bindings:
-  //   - design-mode: Esc, Ctrl+Enter, ? (and `p/P` for pin mode — design-only)
+  //   - live-mode: Esc, Ctrl+Enter, ? (and `p/P` for pin mode — live-only)
   //   - code-review: j, k, ], [, n, N, c, e, d, G, Shift+F, Shift+C,
   //                  Shift+1/2/3/4, t, h, Esc, Ctrl+Enter, ?
-  var BOTH = ['code-review', 'design'];
+  var BOTH = ['code-review', 'live'];
   var CODE_REVIEW_ONLY = ['code-review'];
-  var DESIGN_ONLY = ['design'];
+  var LIVE_ONLY = ['live'];
 
   function renderShortcutsPane(pane, opts) {
     if (!pane) return;
@@ -75,8 +70,8 @@
         { key: '<kbd>Shift</kbd>+<kbd>C</kbd>', action: 'Toggle comments panel', modes: CODE_REVIEW_ONLY },
         { key: '<kbd>Shift</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd>/<kbd>4</kbd>', action: 'Switch scope', mode: 'vcs mode', modes: CODE_REVIEW_ONLY },
       ]},
-      { label: 'Design', shortcuts: [
-        { key: '<kbd>p</kbd>', action: 'Toggle pin mode', modes: DESIGN_ONLY },
+      { label: 'Live', shortcuts: [
+        { key: '<kbd>p</kbd>', action: 'Toggle pin mode', modes: LIVE_ONLY },
       ]},
       { label: 'View', shortcuts: [
         { key: '<kbd>t</kbd>', action: 'Toggle table of contents', mode: 'file mode', modes: CODE_REVIEW_ONLY },
@@ -126,7 +121,7 @@
     // Session info
     html += '<div class="settings-section-label">Current Session</div>';
     html += '<div class="about-session"><div class="about-session-grid">';
-    var modeLabel = session.vcs_name || session.mode || 'design';
+    var modeLabel = session.vcs_name || session.mode || 'live';
     html += '<span class="about-session-label">Mode</span><span class="about-session-value">' + escapeHTML(modeLabel) + '</span>';
     if (session.mode === 'git' && session.branch) {
       html += '<span class="about-session-label">Branch</span><span class="about-session-value">' + escapeHTML(session.branch) + '</span>';
@@ -164,11 +159,10 @@
   // ============================================================
 
   function defaultsForMode(mode) {
-    if (mode === 'design') {
+    if (mode === 'live') {
       return {
         width: false,         // width pill is file-mode only
         hideResolved: true,
-        wrapLines: true,
         update: true,
         account: true,
         agent: true,
@@ -180,7 +174,6 @@
     return {
       width: true,
       hideResolved: true,
-      wrapLines: true,
       update: true,
       account: true,
       agent: true,
@@ -246,7 +239,7 @@
     });
     html += '</div></div>';
 
-    // Width row (file-mode in code review; off in design)
+    // Width row (file-mode in code review; off in live)
     if (show.width) {
       html += '<div class="settings-display-row">';
       html += '<span class="settings-display-label">Content Width <span style="font-weight:400;color:var(--crit-editor-fg-muted)">(file mode)</span></span>';
@@ -267,18 +260,6 @@
       html += '<span class="settings-display-label">Hide resolved comments</span>';
       html += '<label class="comments-panel-switch">';
       html += '<input type="checkbox" id="hideResolvedToggle" aria-label="Hide resolved comments"' + (hideResolved ? ' checked' : '') + '>';
-      html += '<span class="comments-panel-switch-track"><span class="comments-panel-switch-thumb"></span></span>';
-      html += '</label>';
-      html += '</div>';
-    }
-
-    // Line wrap row
-    if (show.wrapLines && hooks.getWrapLines) {
-      var wrapLinesOn = !!hooks.getWrapLines();
-      html += '<div class="settings-display-row">';
-      html += '<span class="settings-display-label">Line wrap</span>';
-      html += '<label class="comments-panel-switch">';
-      html += '<input type="checkbox" id="wrapLinesToggle" aria-label="Line wrap"' + (wrapLinesOn ? ' checked' : '') + '>';
       html += '<span class="comments-panel-switch-track"><span class="comments-panel-switch-thumb"></span></span>';
       html += '</label>';
       html += '</div>';
@@ -309,7 +290,7 @@
         if (alreadyDismissed) {
           html += '<span class="config-card-dismissed" id="updateDismissedNote">Dismissed — will remind you on next version</span>';
         } else {
-          html += '<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="' + esc(cfg.latest_version) + '">Don’t remind me until next version</button>';
+          html += ‘<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="’ + esc(cfg.latest_version) + ‘">Don\’t remind me until next version</button>’;
         }
         html += '</div></div></div>';
       }
@@ -387,7 +368,7 @@
               if (intAlreadyDismissed) {
                 html += '<span class="config-card-dismissed" id="integrationDismissedNote">Dismissed — will remind you when this integration changes</span>';
               } else {
-                html += '<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="' + esc(si.agent) + '" data-hash="' + esc(si.hash) + '">Don’t remind me until next version</button>';
+                html += ‘<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="’ + esc(si.agent) + ‘" data-hash="’ + esc(si.hash) + ‘">Don\’t remind me until next version</button>’;
               }
               html += '</div></div>';
             }
@@ -474,16 +455,6 @@
         hrToggle.addEventListener('change', function () {
           if (hooks.setHideResolved) hooks.setHideResolved(hrToggle.checked);
           if (hooks.onHideResolvedChange) hooks.onHideResolvedChange();
-        });
-      }
-    }
-
-    if (show.wrapLines && hooks.getWrapLines) {
-      var wlToggle = pane.querySelector('#wrapLinesToggle');
-      if (wlToggle) {
-        wlToggle.addEventListener('change', function () {
-          if (hooks.setWrapLines) hooks.setWrapLines(wlToggle.checked);
-          if (hooks.onWrapChange) hooks.onWrapChange();
         });
       }
     }

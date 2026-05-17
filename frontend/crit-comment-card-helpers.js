@@ -1,5 +1,5 @@
 // crit-comment-card-helpers.js — pure rendering helpers shared between the
-// code-review comment card (app.js) and design-mode rows (design-mode.row.js).
+// code-review comment card (app.js) and live-mode rows (live-mode.row.js).
 //
 // Rules for adding helpers here:
 //   1. Pure: no closures over module state, no DOM mutation, no fetch.
@@ -8,7 +8,7 @@
 //      so code review keeps rendering exactly the same HTML.
 //
 // Exports onto window.crit.commentCardHelpers. Loaded before app.js and
-// design-mode.js via index.html script order.
+// live-mode.js via index.html script order.
 'use strict';
 (function (root, factory) {
   var api = factory();
@@ -19,16 +19,15 @@
   }
 })(typeof window !== 'undefined' ? window : globalThis, function () {
 
-  // escapeHtml — byte-identical to app.js's escapeHtml (escapes &, <, >, ").
-  // Does NOT escape single quotes; design rows that need that should use the
-  // row-local variant (see design-mode.row.js chipLabel handling).
-  function escapeHtml(str) {
-    return String(str == null ? '' : str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
+  // escapeHtml — delegates to the canonical window.crit.shared.escapeHTML.
+  // Alias preserves the lowercase-h export name for existing consumers.
+  var escapeHtml = (typeof window !== 'undefined' && window.crit && window.crit.shared)
+    ? window.crit.shared.escapeHTML
+    : function (str) {
+        return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
 
   // relativeTime — byte-identical to app.js's relativeTime.
   function relativeTime(dateStr) {
@@ -63,10 +62,26 @@
 
   // formKeyFor — convention-based form-key for edit/reply/etc. forms keyed by
   // comment id. Used by the shared comment-card / comment-form modules and by
-  // design-mode mounts so both controllers produce matching keys.
+  // live-mode mounts so both controllers produce matching keys.
   // kind: 'edit' | 'reply' | string
   function formKeyFor(commentId, kind) {
     return 'comment:' + kind + ':' + commentId;
+  }
+
+  // chipLabel — canonical live-pin label heuristic. Prefers accessible_name,
+  // then a short slice of textContent extracted from outer_html, then the leaf
+  // tag from tag_chain, then a.role, and finally falls back to 'pin'.
+  function chipLabel(a) {
+    var name = (a.accessible_name || '').trim();
+    if (name) return name.length > 60 ? name.slice(0, 60) + '…' : name;
+    var html = a.outer_html || '';
+    var text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (text) return text.length > 60 ? text.slice(0, 60) + '…' : text;
+    var chain = Array.isArray(a.tag_chain) ? a.tag_chain : [];
+    var tag = chain.length ? chain[chain.length - 1] : '';
+    if (tag) return '<' + tag.toLowerCase() + '>';
+    if (a.role) return a.role;
+    return 'pin';
   }
 
   // Standard class strings. These are deliberately simple constants so that
@@ -82,6 +97,7 @@
 
   return {
     escapeHtml: escapeHtml,
+    chipLabel: chipLabel,
     relativeTime: relativeTime,
     formatTime: formatTime,
     formKeyFor: formKeyFor,

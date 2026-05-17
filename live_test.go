@@ -14,27 +14,27 @@ import (
 	"time"
 )
 
-func TestAddDesignPin_AssignsMonotonicGlobalPinNumbers(t *testing.T) {
+func TestAddLivePin_AssignsMonotonicGlobalPinNumbers(t *testing.T) {
 	s := newTestSession(t)
 	a1 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h1", TagChain: []string{"H1"}}
 	a2 := &DOMAnchor{Pathname: "/bar", CSSSelector: "h2", TagChain: []string{"H2"}}
 	a3 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h3", TagChain: []string{"H3"}}
 
-	c1, ok := s.AddDesignPin("/foo", "first", "alice", "u1", a1)
+	c1, ok := s.AddLivePin("/foo", "first", "alice", "u1", a1)
 	if !ok || c1.PinNumber != 1 {
 		t.Fatalf("first pin: ok=%v PinNumber=%d, want ok=true PinNumber=1", ok, c1.PinNumber)
 	}
-	c2, ok := s.AddDesignPin("/bar", "second", "alice", "u1", a2)
+	c2, ok := s.AddLivePin("/bar", "second", "alice", "u1", a2)
 	if !ok || c2.PinNumber != 2 {
 		t.Fatalf("second pin: ok=%v PinNumber=%d, want ok=true PinNumber=2", ok, c2.PinNumber)
 	}
-	c3, ok := s.AddDesignPin("/foo", "third", "alice", "u1", a3)
+	c3, ok := s.AddLivePin("/foo", "third", "alice", "u1", a3)
 	if !ok || c3.PinNumber != 3 {
 		t.Fatalf("third pin: ok=%v PinNumber=%d, want ok=true PinNumber=3", ok, c3.PinNumber)
 	}
 }
 
-// TestAddDesignPin_DeleteMiddle_DoesNotReuseGap pins down the gap-reuse
+// TestAddLivePin_DeleteMiddle_DoesNotReuseGap pins down the gap-reuse
 // semantics: deleting a non-top pin leaves a gap, and the next add must NOT
 // fill that gap — it gets max(remaining)+1. This preserves stable identifiers
 // for users referring to "pin #N" after a delete in the middle of the
@@ -42,20 +42,20 @@ func TestAddDesignPin_AssignsMonotonicGlobalPinNumbers(t *testing.T) {
 //
 // Top-deletion is a separate case: today's max+1 algorithm DOES re-issue the
 // number of the most recent pin if it's deleted before the next add. That's
-// considered acceptable: in the design-mode workflow, deleting the
+// considered acceptable: in the live-mode workflow, deleting the
 // just-added pin and immediately adding another is effectively an edit, and
 // the previous PinNumber hadn't been "spoken about" yet. If product needs
 // strict global monotonicity (no reuse ever, even at the top), the fix is a
 // session-scoped counter persisted in CritJSON — out of scope here.
-func TestAddDesignPin_DeleteMiddle_DoesNotReuseGap(t *testing.T) {
+func TestAddLivePin_DeleteMiddle_DoesNotReuseGap(t *testing.T) {
 	s := newTestSession(t)
 	a1 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h1", TagChain: []string{"H1"}}
 	a2 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h2", TagChain: []string{"H2"}}
 	a3 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h3", TagChain: []string{"H3"}}
 
-	c1, _ := s.AddDesignPin("/foo", "first", "alice", "u1", a1)
-	c2, _ := s.AddDesignPin("/foo", "second", "alice", "u1", a2)
-	c3, _ := s.AddDesignPin("/foo", "third", "alice", "u1", a3)
+	c1, _ := s.AddLivePin("/foo", "first", "alice", "u1", a1)
+	c2, _ := s.AddLivePin("/foo", "second", "alice", "u1", a2)
+	c3, _ := s.AddLivePin("/foo", "third", "alice", "u1", a3)
 	if c1.PinNumber != 1 || c2.PinNumber != 2 || c3.PinNumber != 3 {
 		t.Fatalf("setup: pins = %d,%d,%d, want 1,2,3", c1.PinNumber, c2.PinNumber, c3.PinNumber)
 	}
@@ -66,9 +66,9 @@ func TestAddDesignPin_DeleteMiddle_DoesNotReuseGap(t *testing.T) {
 	}
 
 	a4 := &DOMAnchor{Pathname: "/foo", CSSSelector: "h4", TagChain: []string{"H4"}}
-	c4, ok := s.AddDesignPin("/foo", "fourth", "alice", "u1", a4)
+	c4, ok := s.AddLivePin("/foo", "fourth", "alice", "u1", a4)
 	if !ok {
-		t.Fatal("AddDesignPin after middle-delete returned ok=false")
+		t.Fatal("AddLivePin after middle-delete returned ok=false")
 	}
 	if c4.PinNumber != 4 {
 		t.Fatalf("after middle-delete: PinNumber=%d, want 4 (gap from deleted #2 must NOT be reused)", c4.PinNumber)
@@ -77,58 +77,58 @@ func TestAddDesignPin_DeleteMiddle_DoesNotReuseGap(t *testing.T) {
 
 var lastDispatch string
 
-func testRunDesign([]string) { lastDispatch = "design" }
+func testRunLive([]string)   { lastDispatch = "live" }
 func testRunReview([]string) { lastDispatch = "review" }
 
-func dispatchForTest(args []string, designFn, reviewFn func([]string)) {
-	if looksLikeDesignArgs(args) {
-		designFn(args)
+func dispatchForTest(args []string, liveFn, reviewFn func([]string)) {
+	if looksLikeLiveArgs(args) {
+		liveFn(args)
 	} else {
 		reviewFn(args)
 	}
 }
 
-func TestDispatch_ExplicitDesign(t *testing.T) {
+func TestDispatch_ExplicitLive(t *testing.T) {
 	lastDispatch = ""
-	dispatchForTest([]string{"http://localhost:3000"}, testRunDesign, testRunReview)
-	if lastDispatch != "design" {
-		t.Errorf("dispatch = %q, want design", lastDispatch)
+	dispatchForTest([]string{"http://localhost:3000"}, testRunLive, testRunReview)
+	if lastDispatch != "live" {
+		t.Errorf("dispatch = %q, want live", lastDispatch)
 	}
 }
 
 func TestDispatch_HTTPSAutodetect(t *testing.T) {
 	lastDispatch = ""
-	dispatchForTest([]string{"https://myapp.test:4000/dashboard"}, testRunDesign, testRunReview)
-	if lastDispatch != "design" {
-		t.Errorf("dispatch = %q, want design", lastDispatch)
+	dispatchForTest([]string{"https://myapp.test:4000/dashboard"}, testRunLive, testRunReview)
+	if lastDispatch != "live" {
+		t.Errorf("dispatch = %q, want live", lastDispatch)
 	}
 }
 
-func TestDispatch_URLPlusFile_NotDesign(t *testing.T) {
+func TestDispatch_URLPlusFile_NotLive(t *testing.T) {
 	lastDispatch = ""
-	dispatchForTest([]string{"http://localhost:3000", "./README.md"}, testRunDesign, testRunReview)
+	dispatchForTest([]string{"http://localhost:3000", "./README.md"}, testRunLive, testRunReview)
 	if lastDispatch != "review" {
 		t.Errorf("dispatch = %q, want review (URL+file must not autodetect)", lastDispatch)
 	}
 }
 
-func TestDispatch_FTPNotDesign(t *testing.T) {
+func TestDispatch_FTPNotLive(t *testing.T) {
 	lastDispatch = ""
-	dispatchForTest([]string{"ftp://foo.bar"}, testRunDesign, testRunReview)
+	dispatchForTest([]string{"ftp://foo.bar"}, testRunLive, testRunReview)
 	if lastDispatch != "review" {
 		t.Errorf("dispatch = %q, want review (ftp not autodetected)", lastDispatch)
 	}
 }
 
-func TestDispatch_PlainArgNotDesign(t *testing.T) {
+func TestDispatch_PlainArgNotLive(t *testing.T) {
 	lastDispatch = ""
-	dispatchForTest([]string{"README.md"}, testRunDesign, testRunReview)
+	dispatchForTest([]string{"README.md"}, testRunLive, testRunReview)
 	if lastDispatch != "review" {
 		t.Errorf("dispatch = %q, want review", lastDispatch)
 	}
 }
 
-func TestLooksLikeDesignArgs(t *testing.T) {
+func TestLooksLikeLiveArgs(t *testing.T) {
 	cases := []struct {
 		args []string
 		want bool
@@ -145,9 +145,9 @@ func TestLooksLikeDesignArgs(t *testing.T) {
 		{[]string{"://invalid"}, false},
 	}
 	for _, tc := range cases {
-		got := looksLikeDesignArgs(tc.args)
+		got := looksLikeLiveArgs(tc.args)
 		if got != tc.want {
-			t.Errorf("looksLikeDesignArgs(%v) = %v, want %v", tc.args, got, tc.want)
+			t.Errorf("looksLikeLiveArgs(%v) = %v, want %v", tc.args, got, tc.want)
 		}
 	}
 }
@@ -237,19 +237,19 @@ func TestSmokeTest_CSPFrameAncestors_Informational(t *testing.T) {
 	}
 }
 
-func TestShareGuard_DesignReview(t *testing.T) {
+func TestShareGuard_LiveReview(t *testing.T) {
 	dir := t.TempDir()
 	critPath := filepath.Join(dir, "review")
-	cj := CritJSON{ReviewType: "design", Origin: "http://localhost:3000", ReviewRound: 1, Files: map[string]CritJSONFile{}}
+	cj := CritJSON{ReviewType: "live", Origin: "http://localhost:3000", ReviewRound: 1, Files: map[string]CritJSONFile{}}
 	if err := saveCritJSON(critPath, cj); err != nil {
 		t.Fatalf("saveCritJSON: %v", err)
 	}
 	err := checkShareAllowed(critPath)
 	if err == nil {
-		t.Fatal("expected error for design review share")
+		t.Fatal("expected error for live review share")
 	}
-	if !strings.Contains(err.Error(), "design") {
-		t.Errorf("error should mention design: %v", err)
+	if !strings.Contains(err.Error(), "live") {
+		t.Errorf("error should mention live: %v", err)
 	}
 }
 
@@ -272,8 +272,8 @@ func TestGitHubSyncGuard(t *testing.T) {
 		op        string
 		wantError bool
 	}{
-		{"design review pull", CritJSON{ReviewType: "design", Origin: "http://localhost:3000"}, "crit pull", true},
-		{"design review push", CritJSON{ReviewType: "design", Origin: "http://localhost:3000"}, "crit push", true},
+		{"live review pull", CritJSON{ReviewType: "live", Origin: "http://localhost:3000"}, "crit pull", true},
+		{"live review push", CritJSON{ReviewType: "live", Origin: "http://localhost:3000"}, "crit push", true},
 		{"code review pull", CritJSON{ReviewRound: 1}, "crit pull", false},
 		{"code review push", CritJSON{ReviewRound: 1}, "crit push", false},
 	}
@@ -282,10 +282,10 @@ func TestGitHubSyncGuard(t *testing.T) {
 			err := checkGitHubSyncAllowed(tt.cj, tt.op)
 			if tt.wantError {
 				if err == nil {
-					t.Fatalf("expected error for %s on design review", tt.op)
+					t.Fatalf("expected error for %s on live review", tt.op)
 				}
-				if !strings.Contains(err.Error(), "design") {
-					t.Errorf("error should mention design: %v", err)
+				if !strings.Contains(err.Error(), "live") {
+					t.Errorf("error should mention live: %v", err)
 				}
 				if !strings.Contains(err.Error(), tt.op) {
 					t.Errorf("error should mention op %q: %v", tt.op, err)
@@ -297,19 +297,19 @@ func TestGitHubSyncGuard(t *testing.T) {
 	}
 }
 
-func TestCommentCLIGuard_DesignReview(t *testing.T) {
+func TestCommentCLIGuard_LiveReview(t *testing.T) {
 	dir := t.TempDir()
 	critPath := filepath.Join(dir, "review")
-	cj := CritJSON{ReviewType: "design", Origin: "http://localhost:3000", ReviewRound: 1, Files: map[string]CritJSONFile{}}
+	cj := CritJSON{ReviewType: "live", Origin: "http://localhost:3000", ReviewRound: 1, Files: map[string]CritJSONFile{}}
 	if err := saveCritJSON(critPath, cj); err != nil {
 		t.Fatalf("saveCritJSON: %v", err)
 	}
 	err := checkCommentCLIAllowed(critPath)
 	if err == nil {
-		t.Fatal("expected error for design review")
+		t.Fatal("expected error for live review")
 	}
-	if !strings.Contains(err.Error(), "design") {
-		t.Errorf("error should mention design: %v", err)
+	if !strings.Contains(err.Error(), "live") {
+		t.Errorf("error should mention live: %v", err)
 	}
 }
 
@@ -325,7 +325,7 @@ func TestCommentCLIGuard_CodeReview_Allowed(t *testing.T) {
 	}
 }
 
-func TestCarryForward_DesignPinSkipsRemap(t *testing.T) {
+func TestCarryForward_LivePinSkipsRemap(t *testing.T) {
 	dir := t.TempDir()
 	mdPath := filepath.Join(dir, "page.md")
 	writeFile(t, mdPath, "# Page\n\nNew content\n")
@@ -361,16 +361,16 @@ func TestCarryForward_DesignPinSkipsRemap(t *testing.T) {
 		if c.DOMAnchor != nil {
 			found = true
 			if c.StartLine != 0 || c.EndLine != 0 {
-				t.Errorf("design pin lines remapped to %d/%d; should stay 0/0", c.StartLine, c.EndLine)
+				t.Errorf("live pin lines remapped to %d/%d; should stay 0/0", c.StartLine, c.EndLine)
 			}
 		}
 	}
 	if !found {
-		t.Error("design pin not carried forward")
+		t.Error("live pin not carried forward")
 	}
 }
 
-func TestMergeGHComments_DesignPinNotDeduped(t *testing.T) {
+func TestMergeGHComments_LivePinNotDeduped(t *testing.T) {
 	pin := Comment{
 		ID: "pin1", StartLine: 0, EndLine: 0, Body: "pin body",
 		DOMAnchor: &DOMAnchor{Pathname: "/dashboard", CSSSelector: "#h1"},
@@ -391,7 +391,7 @@ func TestMergeGHComments_DesignPinNotDeduped(t *testing.T) {
 	ghc.User.Login = "reviewer"
 	merged := mergeGHComments(cj, []ghComment{ghc})
 	if merged == 0 {
-		t.Error("GH comment should be added (not deduped against design pin); merged = 0")
+		t.Error("GH comment should be added (not deduped against live pin); merged = 0")
 	}
 	pinCount := 0
 	for _, c := range cj.Files["/dashboard"].Comments {
@@ -400,32 +400,32 @@ func TestMergeGHComments_DesignPinNotDeduped(t *testing.T) {
 		}
 	}
 	if pinCount != 1 {
-		t.Errorf("design pin count = %d after merge, want 1", pinCount)
+		t.Errorf("live pin count = %d after merge, want 1", pinCount)
 	}
 }
 
-func TestParseServerFlags_DesignOrigin(t *testing.T) {
-	f := parseServerFlags([]string{"--design-origin", "http://localhost:3000"})
-	if f.designOrigin != "http://localhost:3000" {
-		t.Errorf("designOrigin = %q, want http://localhost:3000", f.designOrigin)
+func TestParseServerFlags_LiveOrigin(t *testing.T) {
+	f := parseServerFlags([]string{"--live-origin", "http://localhost:3000"})
+	if f.liveOrigin != "http://localhost:3000" {
+		t.Errorf("liveOrigin = %q, want http://localhost:3000", f.liveOrigin)
 	}
 }
 
-func TestParseServerFlags_NoDesignOrigin(t *testing.T) {
+func TestParseServerFlags_NoLiveOrigin(t *testing.T) {
 	f := parseServerFlags([]string{"plan.md"})
-	if f.designOrigin != "" {
-		t.Errorf("designOrigin = %q, want empty", f.designOrigin)
+	if f.liveOrigin != "" {
+		t.Errorf("liveOrigin = %q, want empty", f.liveOrigin)
 	}
 }
 
-func TestCreateDesignSession_EmptyOriginIsFatal(t *testing.T) {
-	_, err := createDesignSession(&serverConfig{designOrigin: ""})
+func TestCreateLiveSession_EmptyOriginIsFatal(t *testing.T) {
+	_, err := createLiveSession(&serverConfig{liveOrigin: ""})
 	if err == nil {
-		t.Fatal("createDesignSession with empty origin must error")
+		t.Fatal("createLiveSession with empty origin must error")
 	}
 }
 
-func TestRunDesign_SmokeFailFatal(t *testing.T) {
+func TestRunLive_SmokeFailFatal(t *testing.T) {
 	result := runSmokeTest("http://127.0.0.1:19999")
 	if !result.fatal {
 		t.Error("conn refused must be fatal")
@@ -435,7 +435,7 @@ func TestRunDesign_SmokeFailFatal(t *testing.T) {
 	}
 }
 
-func TestRunDesign_OriginNormalisedToSchemeHost(t *testing.T) {
+func TestRunLive_OriginNormalisedToSchemeHost(t *testing.T) {
 	u, _ := url.Parse("https://myapp.test:4000/dashboard?q=1")
 	origin := u.Scheme + "://" + u.Host
 	if origin != "https://myapp.test:4000" {
@@ -478,18 +478,18 @@ func TestDetectFrameworks(t *testing.T) {
 	}
 }
 
-// TestCarryForwardComment_PreservesDesignPinFields guards against silent data
-// loss for design pins on round bump. carryForwardComment is called from
+// TestCarryForwardComment_PreservesLivePinFields guards against silent data
+// loss for live pins on round bump. carryForwardComment is called from
 // carryForwardAllComments for every file lacking PreviousContent — which is
-// the case for design-route entries (no on-disk content). Dropping DOMAnchor
-// or PinNumber here makes design pins disappear from /api/file/comments
+// the case for live-route entries (no on-disk content). Dropping DOMAnchor
+// or PinNumber here makes live pins disappear from /api/file/comments
 // after POST /api/round-complete.
 //
-// Drift fields (Drifted, DriftedOnRound) are NOT preserved for design pins —
-// drift detection is disabled for design mode because the live DOM can change
-// without any code change (LiveView re-renders, etc.). Design pins must
+// Drift fields (Drifted, DriftedOnRound) are NOT preserved for live pins —
+// drift detection is disabled for live mode because the live DOM can change
+// without any code change (LiveView re-renders, etc.). Live pins must
 // always emerge with Drifted=false after carry-forward.
-func TestCarryForwardComment_PreservesDesignPinFields(t *testing.T) {
+func TestCarryForwardComment_PreservesLivePinFields(t *testing.T) {
 	old := Comment{
 		ID:             "pin-original",
 		Body:           "needs work",
@@ -516,17 +516,17 @@ func TestCarryForwardComment_PreservesDesignPinFields(t *testing.T) {
 		t.Errorf("PinNumber = %d, want 7", carried.PinNumber)
 	}
 	if carried.Drifted {
-		t.Error("Drifted = true, want false (design pins must never be drifted)")
+		t.Error("Drifted = true, want false (live pins must never be drifted)")
 	}
 	if carried.DriftedOnRound != 0 {
-		t.Errorf("DriftedOnRound = %d, want 0 (design pins must not carry drift round)", carried.DriftedOnRound)
+		t.Errorf("DriftedOnRound = %d, want 0 (live pins must not carry drift round)", carried.DriftedOnRound)
 	}
 	if carried.UserID != "u1" {
 		t.Errorf("UserID = %q, want u1", carried.UserID)
 	}
 }
 
-// TestCarryForwardComment_CodeCommentDriftPreserved guards that the design-mode
+// TestCarryForwardComment_CodeCommentDriftPreserved guards that the live-mode
 // drift suppression does NOT regress code-review drift carry-forward. Code
 // comments (DOMAnchor == nil) must continue to carry their Drifted and
 // DriftedOnRound fields across rounds.
@@ -554,21 +554,21 @@ func TestCarryForwardComment_CodeCommentDriftPreserved(t *testing.T) {
 	}
 }
 
-// TestHandleRoundCompleteFiles_DesignPinsSurvive exercises the round-complete
-// pipeline end-to-end for a design session: a pin (open and resolved) added
+// TestHandleRoundCompleteFiles_LivePinsSurvive exercises the round-complete
+// pipeline end-to-end for a live session: a pin (open and resolved) added
 // in round 1 must remain readable in round 2 with anchor identity intact.
 // This is the regression for the gap that left two
-// rounds.designmode.spec.ts scenarios fixme'd.
-func TestHandleRoundCompleteFiles_DesignPinsSurvive(t *testing.T) {
+// rounds.livemode.spec.ts scenarios fixme'd.
+func TestHandleRoundCompleteFiles_LivePinsSurvive(t *testing.T) {
 	dir := t.TempDir()
 	reviewPath := filepath.Join(dir, "review")
 
-	// Seed a design review file containing an open pin and a resolved pin
+	// Seed a live review file containing an open pin and a resolved pin
 	// (both with non-trivial DriftedOnRound to verify it round-trips).
 	openAnchor := &DOMAnchor{Pathname: "/", CSSSelector: "#primary-btn", TagChain: []string{"BUTTON"}}
 	resolvedAnchor := &DOMAnchor{Pathname: "/", CSSSelector: "#secondary-btn", TagChain: []string{"BUTTON"}}
 	cj := CritJSON{
-		ReviewType:  "design",
+		ReviewType:  "live",
 		Origin:      "http://localhost:3000",
 		ReviewRound: 1,
 		Files: map[string]CritJSONFile{
@@ -601,13 +601,13 @@ func TestHandleRoundCompleteFiles_DesignPinsSurvive(t *testing.T) {
 		Mode:           "files",
 		RepoRoot:       dir,
 		ReviewRound:    1,
-		ReviewType:     "design",
+		ReviewType:     "live",
 		Origin:         "http://localhost:3000",
 		ReviewFilePath: reviewPath,
 		subscribers:    make(map[chan SSEEvent]struct{}),
 		roundComplete:  make(chan struct{}, 1),
 		Files: []*FileEntry{
-			{Path: "/", FileType: "design-route", Status: "added", Comments: cj.Files["/"].Comments},
+			{Path: "/", FileType: "live-route", Status: "added", Comments: cj.Files["/"].Comments},
 		},
 	}
 
@@ -627,7 +627,7 @@ func TestHandleRoundCompleteFiles_DesignPinsSurvive(t *testing.T) {
 
 	fe := s.Files[0]
 	if len(fe.Comments) != 2 {
-		t.Fatalf("Comments count = %d after round-complete, want 2 (design pins must survive)", len(fe.Comments))
+		t.Fatalf("Comments count = %d after round-complete, want 2 (live pins must survive)", len(fe.Comments))
 	}
 
 	byPin := map[int]Comment{}
@@ -642,10 +642,10 @@ func TestHandleRoundCompleteFiles_DesignPinsSurvive(t *testing.T) {
 		t.Errorf("open pin DOMAnchor lost or mutated: %+v", open.DOMAnchor)
 	}
 	if open.DriftedOnRound != 0 {
-		t.Errorf("open pin DriftedOnRound = %d, want 0 (design pins must not carry drift round)", open.DriftedOnRound)
+		t.Errorf("open pin DriftedOnRound = %d, want 0 (live pins must not carry drift round)", open.DriftedOnRound)
 	}
 	if open.Drifted {
-		t.Error("open pin Drifted = true, want false (design pins must never be drifted)")
+		t.Error("open pin Drifted = true, want false (live pins must never be drifted)")
 	}
 	if !open.CarriedForward {
 		t.Error("open pin CarriedForward = false, want true")
@@ -663,12 +663,12 @@ func TestHandleRoundCompleteFiles_DesignPinsSurvive(t *testing.T) {
 	}
 }
 
-// TestCreateDesignSession_FreshStartsOnRoundOne pins down Bug 1: a previously
-// abandoned design daemon may persist `review_round: 2` to disk after a single
+// TestCreateLiveSession_FreshStartsOnRoundOne pins down Bug 1: a previously
+// abandoned live daemon may persist `review_round: 2` to disk after a single
 // round-complete. When a new session boots against the same origin and finds
 // the file empty of comments, it must reset to round 1 — otherwise the next
 // pin authored ships against a stale counter.
-func TestCreateDesignSession_FreshStartsOnRoundOne(t *testing.T) {
+func TestCreateLiveSession_FreshStartsOnRoundOne(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id")
 	if err := os.MkdirAll(identity, 0o755); err != nil {
@@ -684,23 +684,23 @@ func TestCreateDesignSession_FreshStartsOnRoundOne(t *testing.T) {
 	}
 
 	sc := &serverConfig{
-		designOrigin: "http://localhost:4000",
-		reviewPath:   identity,
+		liveOrigin: "http://localhost:4000",
+		reviewPath: identity,
 	}
-	s, err := createDesignSession(sc)
+	s, err := createLiveSession(sc)
 	if err != nil {
-		t.Fatalf("createDesignSession: %v", err)
+		t.Fatalf("createLiveSession: %v", err)
 	}
 	if s.ReviewRound != 1 {
 		t.Errorf("ReviewRound = %d, want 1 (stale round must not propagate when no comments exist)", s.ReviewRound)
 	}
 }
 
-// TestCreateDesignSession_HonorsRoundWhenCommentsPresent guards the inverse:
+// TestCreateLiveSession_HonorsRoundWhenCommentsPresent guards the inverse:
 // a real resumed session with persisted comments must keep its round counter
 // (carry-forward / drift detection depends on knowing which round each pin
 // was created in).
-func TestCreateDesignSession_HonorsRoundWhenCommentsPresent(t *testing.T) {
+func TestCreateLiveSession_HonorsRoundWhenCommentsPresent(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id")
 	if err := os.MkdirAll(identity, 0o755); err != nil {
@@ -721,25 +721,25 @@ func TestCreateDesignSession_HonorsRoundWhenCommentsPresent(t *testing.T) {
 	}
 
 	sc := &serverConfig{
-		designOrigin: "http://localhost:4000",
-		reviewPath:   identity,
+		liveOrigin: "http://localhost:4000",
+		reviewPath: identity,
 	}
-	s, err := createDesignSession(sc)
+	s, err := createLiveSession(sc)
 	if err != nil {
-		t.Fatalf("createDesignSession: %v", err)
+		t.Fatalf("createLiveSession: %v", err)
 	}
 	if s.ReviewRound != 3 {
 		t.Errorf("ReviewRound = %d, want 3 (resumed session with comments must keep its round)", s.ReviewRound)
 	}
 }
 
-// TestDesignSession_ExternalReplyEmitsCommentsChanged guards Bug 4: when
-// `crit comment --reply-to` writes a reply to a design pin via a separate
-// process, the running design daemon must detect the on-disk change and fan
+// TestLiveSession_ExternalReplyEmitsCommentsChanged guards Bug 4: when
+// `crit comment --reply-to` writes a reply to a live pin via a separate
+// process, the running live daemon must detect the on-disk change and fan
 // out a `comments-changed` SSE event so subscribed clients can refresh
 // without a full page reload. Code-review mode already does this through
-// mergeExternalCritJSON; this test pins down that design mode does too.
-func TestDesignSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
+// mergeExternalCritJSON; this test pins down that live mode does too.
+func TestLiveSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id")
 	if err := os.MkdirAll(identity, 0o755); err != nil {
@@ -747,10 +747,10 @@ func TestDesignSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
 	}
 	reviewPath := filepath.Join(identity, "review.json")
 
-	// Seed a design review file with a single pin.
+	// Seed a live review file with a single pin.
 	pinAnchor := &DOMAnchor{Pathname: "/dashboard", CSSSelector: "#primary-btn", TagChain: []string{"BUTTON"}}
 	cj := CritJSON{
-		ReviewType:  "design",
+		ReviewType:  "live",
 		Origin:      "http://localhost:3000",
 		ReviewRound: 1,
 		Files: map[string]CritJSONFile{
@@ -782,7 +782,7 @@ func TestDesignSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
 	s := &Session{
 		Mode:              "files",
 		RepoRoot:          dir,
-		ReviewType:        "design",
+		ReviewType:        "live",
 		Origin:            "http://localhost:3000",
 		ReviewRound:       1,
 		ReviewFilePath:    identity,
@@ -790,7 +790,7 @@ func TestDesignSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
 		subscribers:       make(map[chan SSEEvent]struct{}),
 		roundComplete:     make(chan struct{}, 1),
 		Files: []*FileEntry{
-			{Path: "/dashboard", FileType: "design-route", Status: "added", Comments: cj.Files["/dashboard"].Comments},
+			{Path: "/dashboard", FileType: "live-route", Status: "added", Comments: cj.Files["/dashboard"].Comments},
 		},
 	}
 
@@ -840,13 +840,13 @@ func TestDesignSession_ExternalReplyEmitsCommentsChanged(t *testing.T) {
 	}
 }
 
-// TestHandleFileComments_DesignPinFansOutSSE pins down the API-side broadcast
+// TestHandleFileComments_LivePinFansOutSSE pins down the API-side broadcast
 // added for Bug 4: a successful POST /api/file/comments with a DOMAnchor must
-// emit a comments-changed SSE event so other tabs reviewing the same design
+// emit a comments-changed SSE event so other tabs reviewing the same live
 // session refresh immediately. Without this, cross-tab sync stalls until the
 // watcher's 1s mtime tick, and the originating daemon's own writes never fire
 // the watcher path at all (lastCritJSONMtime equals the just-written mtime).
-func TestHandleFileComments_DesignPinFansOutSSE(t *testing.T) {
+func TestHandleFileComments_LivePinFansOutSSE(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id")
 	if err := os.MkdirAll(identity, 0o755); err != nil {
@@ -856,7 +856,7 @@ func TestHandleFileComments_DesignPinFansOutSSE(t *testing.T) {
 	sess := &Session{
 		Mode:           "files",
 		RepoRoot:       dir,
-		ReviewType:     "design",
+		ReviewType:     "live",
 		Origin:         "http://localhost:3000",
 		ReviewRound:    1,
 		ReviewFilePath: identity,
@@ -888,54 +888,54 @@ func TestHandleFileComments_DesignPinFansOutSSE(t *testing.T) {
 			t.Errorf("event type = %q, want comments-changed", ev.Type)
 		}
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("no SSE event received after design-pin POST (cross-tab sync would stall)")
+		t.Fatal("no SSE event received after live-pin POST (cross-tab sync would stall)")
 	}
 }
 
-// TestCreateDesignSession_FreshAwaitsFirstReview pins down the second half of
-// Bug 1: a brand-new design session (no on-disk review file, no review dir)
+// TestCreateLiveSession_FreshAwaitsFirstReview pins down the second half of
+// Bug 1: a brand-new live session (no on-disk review file, no review dir)
 // must report IsAwaitingFirstReview()==true so the daemon-client's first
 // review-cycle call does NOT fire SignalRoundComplete() at boot. Without this,
 // the watcher's handleRoundCompleteFiles bumps ReviewRound from 1 to 2 before
 // the user authors a single pin, and the resulting comment ships against the
 // stale counter — surfaced in the UI as "Round #2 on a brand-new review".
-func TestCreateDesignSession_FreshAwaitsFirstReview(t *testing.T) {
+func TestCreateLiveSession_FreshAwaitsFirstReview(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id-fresh")
 	// Deliberately do NOT create the directory or any review file: we are
 	// modelling the never-before-seen URL case.
 	sc := &serverConfig{
-		designOrigin: "http://localhost:4000",
-		reviewPath:   identity,
+		liveOrigin: "http://localhost:4000",
+		reviewPath: identity,
 	}
-	s, err := createDesignSession(sc)
+	s, err := createLiveSession(sc)
 	if err != nil {
-		t.Fatalf("createDesignSession: %v", err)
+		t.Fatalf("createLiveSession: %v", err)
 	}
 	if s.ReviewRound != 1 {
 		t.Errorf("ReviewRound = %d, want 1", s.ReviewRound)
 	}
 	if !s.IsAwaitingFirstReview() {
-		t.Fatal("IsAwaitingFirstReview() = false, want true (fresh design session must not auto-fire round-complete on first review-cycle call)")
+		t.Fatal("IsAwaitingFirstReview() = false, want true (fresh live session must not auto-fire round-complete on first review-cycle call)")
 	}
 }
 
-// TestDesignSession_FirstPinAfterBootShipsRound1 is the end-to-end pin-down
+// TestLiveSession_FirstPinAfterBootShipsRound1 is the end-to-end pin-down
 // for Bug 1 from the user's reproduction: user pins one element on a fresh
 // session, the persisted comment must carry review_round: 1. Without the
 // awaitingFirstReview default, the daemon-client's review-cycle call fires
 // SignalRoundComplete at boot, the watcher bumps the round to 2, and the
-// AddDesignPin stamps ReviewRound: 2 onto the user's first pin.
-func TestDesignSession_FirstPinAfterBootShipsRound1(t *testing.T) {
+// AddLivePin stamps ReviewRound: 2 onto the user's first pin.
+func TestLiveSession_FirstPinAfterBootShipsRound1(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id-firstpin")
 	sc := &serverConfig{
-		designOrigin: "http://localhost:4000",
-		reviewPath:   identity,
+		liveOrigin: "http://localhost:4000",
+		reviewPath: identity,
 	}
-	sess, err := createDesignSession(sc)
+	sess, err := createLiveSession(sc)
 	if err != nil {
-		t.Fatalf("createDesignSession: %v", err)
+		t.Fatalf("createLiveSession: %v", err)
 	}
 
 	// Reproduce the daemon-client review-cycle gate: SignalRoundComplete is
@@ -954,9 +954,9 @@ func TestDesignSession_FirstPinAfterBootShipsRound1(t *testing.T) {
 	}
 
 	anchor := &DOMAnchor{Pathname: "/", CSSSelector: "h1", TagChain: []string{"H1"}}
-	c, ok := sess.AddDesignPin("/", "first pin", "alice", "u1", anchor)
+	c, ok := sess.AddLivePin("/", "first pin", "alice", "u1", anchor)
 	if !ok {
-		t.Fatal("AddDesignPin returned ok=false")
+		t.Fatal("AddLivePin returned ok=false")
 	}
 	if c.ReviewRound != 1 {
 		t.Errorf("first pin ReviewRound = %d, want 1 (boot-time round bump leaked into the user's first pin)", c.ReviewRound)
@@ -1017,11 +1017,11 @@ func TestDOMAnchor_LegacyScreenshotIgnored(t *testing.T) {
 	}
 }
 
-// TestDesign_PostFileCommentsDropsScreenshot pins down the persistence side:
+// TestLive_PostFileCommentsDropsScreenshot pins down the persistence side:
 // a POST to /api/file/comments carrying a legacy screenshot field must
 // succeed (forward compat with old frontend builds), but the persisted
 // dom_anchor on the saved review.json must NOT contain a screenshot key.
-func TestDesign_PostFileCommentsDropsScreenshot(t *testing.T) {
+func TestLive_PostFileCommentsDropsScreenshot(t *testing.T) {
 	dir := t.TempDir()
 	identity := filepath.Join(dir, "review-id")
 	if err := os.MkdirAll(identity, 0o755); err != nil {
@@ -1031,7 +1031,7 @@ func TestDesign_PostFileCommentsDropsScreenshot(t *testing.T) {
 	sess := &Session{
 		Mode:           "files",
 		RepoRoot:       dir,
-		ReviewType:     "design",
+		ReviewType:     "live",
 		Origin:         "http://localhost:3000",
 		ReviewRound:    1,
 		ReviewFilePath: identity,
@@ -1079,18 +1079,18 @@ func TestDesign_PostFileCommentsDropsScreenshot(t *testing.T) {
 	}
 }
 
-func TestDesignSession_ReinvokeCommandIncludesOrigin(t *testing.T) {
+func TestLiveSession_ReinvokeCommandIncludesOrigin(t *testing.T) {
 	sc := &serverConfig{
-		designOrigin: "http://localhost:4000",
-		reviewPath:   filepath.Join(t.TempDir(), "review-reinvoke"),
+		liveOrigin: "http://localhost:4000",
+		reviewPath: filepath.Join(t.TempDir(), "review-reinvoke"),
 	}
-	sess, err := createDesignSession(sc)
+	sess, err := createLiveSession(sc)
 	if err != nil {
-		t.Fatalf("createDesignSession: %v", err)
+		t.Fatalf("createLiveSession: %v", err)
 	}
 	// Simulate the post-creation override that runServe does.
-	if sc.designOrigin != "" {
-		sess.CLIArgs = []string{sc.designOrigin}
+	if sc.liveOrigin != "" {
+		sess.CLIArgs = []string{sc.liveOrigin}
 	} else {
 		sess.CLIArgs = sc.files
 	}
@@ -1102,14 +1102,14 @@ func TestDesignSession_ReinvokeCommandIncludesOrigin(t *testing.T) {
 	}
 }
 
-func TestDesignSession_AuthorFromConfig(t *testing.T) {
+func TestLiveSession_AuthorFromConfig(t *testing.T) {
 	setHome(t, t.TempDir())
 	s, _ := newTestServer(t)
 	s.author = "Tomasz"
 
 	sess := &Session{
 		Mode:        "files",
-		ReviewType:  "design",
+		ReviewType:  "live",
 		ReviewRound: 1,
 		Files:       []*FileEntry{{Path: "/", Status: "added"}},
 		subscribers: make(map[chan SSEEvent]struct{}),

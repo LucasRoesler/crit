@@ -569,7 +569,7 @@
   }
 
   // Convention-based form-key for edit/reply forms keyed by comment id.
-  // Used by buildCommentCard reply input + design-mode mounts.
+  // Used by buildCommentCard reply input + live-mode mounts.
   // Delegates to the shared helper module so both controllers stay aligned.
 
   function addForm(form) {
@@ -610,7 +610,7 @@
   const enc = encodeURIComponent;
 
   // Author color-coding for multi-reviewer comments — shared helper so
-  // design-mode mounts produce matching swatch indices. The helpers module
+  // live-mode mounts produce matching swatch indices. The helpers module
   // is loaded before app.js via index.html script order, so we reference it
   // directly without a local fallback.
   const authorColorIndex = window.crit.commentCardHelpers.authorColorIndex;
@@ -1241,7 +1241,7 @@
     });
   }
 
-  // Pure rendering helpers live in crit-comment-card-helpers.js so design-mode
+  // Pure rendering helpers live in crit-comment-card-helpers.js so live-mode
   // rows render with the same primitives. The helpers module is loaded before
   // app.js via index.html script order, so we reference it directly.
   const _ccHelpers = window.crit.commentCardHelpers;
@@ -4999,7 +4999,7 @@
 
   // Thin wrapper kept for existing call sites; delegates to the unified
   // crit.shared.showToast helper (defined in crit-shared.js, also used by
-  // design-mode.js).
+  // live-mode.js).
   function showMiniToast(message) {
     if (window.crit && window.crit.shared && window.crit.shared.showToast) {
       window.crit.shared.showToast(message);
@@ -5038,7 +5038,7 @@
   // Shared helper for building comment card skeleton (header, body, replies).
   // Code-review-internal callers pass a sparse opts object; this wrapper
   // injects the module-scoped deps and the default override callbacks. The
-  // real implementation lives in frontend/crit-comment-card.js so design-mode
+  // real implementation lives in frontend/crit-comment-card.js so live-mode
   // can mount the same renderer with its own deps.
   function buildCommentCard(comment, filePath, opts) {
     opts = opts || {};
@@ -6549,6 +6549,9 @@
     if (shareURL && !authUserName) {
       extra.push('Run <kbd>crit auth login</kbd> to link shared reviews with your account.');
     }
+    if (shareURL) {
+      extra.push('Create a team on <kbd>' + shareURL.replace(/^https?:\/\//, '') + '</kbd> to group and secure your shared reviews.');
+    }
     window.crit.shared.startTipRotation(extra);
   }
 
@@ -6603,7 +6606,7 @@
   // ===== Finish Review =====
   // The DOM/clipboard/animation logic lives in crit.shared.runFinishReview;
   // this thin wrapper preserves the app.js-specific waitingNotApproved flag
-  // and uiState transition (design-mode wires its own state machine).
+  // and uiState transition (live-mode wires its own state machine).
   async function doFinishReview() {
     return await window.crit.shared.runFinishReview({
       onApproved: function () { waitingNotApproved = false; setUIState('waiting'); },
@@ -8020,7 +8023,7 @@
       if (!handle) return;
       // Pointer capture, body.sidebar-resizing class, persistence, min clamp,
       // and keyboard a11y all live in the shared helper. Both code-review
-      // handles (file-tree, comments-panel) and design-mode's comments-panel
+      // handles (file-tree, comments-panel) and live-mode's comments-panel
       // share the implementation so cursor-locking and keyboard nudge stay
       // in lockstep across modes.
       window.crit.shared.installSidebarResize(handle, target, {
@@ -8604,9 +8607,6 @@
           getHideResolved: isHideResolved,
           setHideResolved: setHideResolved,
           onHideResolvedChange: function () { renderAllFiles(); },
-          getWrapLines: function () { return wrapLines; },
-          setWrapLines: setWrapLines,
-          onWrapChange: function () {},
           hasActivePendingUpdates: hasActivePendingUpdates,
           announceCopy: announceCopy,
           escape: escapeHtml,
@@ -8682,7 +8682,7 @@
       if (alreadyDismissed) {
         html += '<span class="config-card-dismissed" id="updateDismissedNote">Dismissed — will remind you on next version</span>';
       } else {
-        html += '<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="' + escapeHtml(cfg.latest_version) + '">Don’t remind me until next version</button>';
+        html += '<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="' + escapeHtml(cfg.latest_version) + '">Don\'t remind me until next version</button>';
       }
       html += '</div>';
       html += '</div>';
@@ -8763,7 +8763,7 @@
             if (intAlreadyDismissed) {
               html += '<span class="config-card-dismissed" id="integrationDismissedNote">Dismissed — will remind you when this integration changes</span>';
             } else {
-              html += '<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="' + escapeHtml(si.agent) + '" data-hash="' + escapeHtml(si.hash) + '">Don’t remind me until next version</button>';
+              html += '<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="' + escapeHtml(si.agent) + '" data-hash="' + escapeHtml(si.hash) + '">Don\'t remind me until next version</button>';
             }
             html += '</div>';
             html += '</div>';

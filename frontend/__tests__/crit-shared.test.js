@@ -10,9 +10,10 @@ const fn = new Function('window', 'document', src + '\nreturn window;');
 fn(sandbox.window, sandbox.document);
 const shared = sandbox.window.crit.shared;
 
-test('escapeHTML escapes <, >, &, "', () => {
+test('escapeHTML escapes <, >, &, ", and single quotes', () => {
   assert.equal(shared.escapeHTML('<a href="x">&</a>'),
     '&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;');
+  assert.equal(shared.escapeHTML("it's"), 'it&#39;s');
 });
 
 test('escapeHTML returns empty string for null/undefined', () => {
@@ -27,7 +28,7 @@ test('getCookie reads document.cookie and URL-decodes the value', () => {
 });
 
 test('setCookie writes 1-year max-age, SameSite=Strict, URL-encoded value', () => {
-  // Persistence policy must match app.js: design-mode prefs (theme,
+  // Persistence policy must match app.js: live-mode prefs (theme,
   // commentsPanelOpen, hideResolved, etc.) survive browser restarts. A
   // session cookie here would silently reset those across the close/open.
   sandbox.document.cookie = '';
@@ -50,14 +51,14 @@ test('setCookie / getCookie round-trip preserves JSON with special chars', () =>
 
 test('setSetting / getSetting round-trip via the consolidated cookie', () => {
   sandbox.document.cookie = '';
-  shared.setSetting('design_commentsPanelOpen', false);
+  shared.setSetting('live_commentsPanelOpen', false);
   shared.setSetting('theme', 'dark');
   // The browser would echo back only the last write (one cookie name);
   // model that by extracting it from the assigned string.
   const m = sandbox.document.cookie.match(/^crit-settings=([^;]*)/);
   assert.ok(m, 'cookie was written');
   sandbox.document.cookie = 'crit-settings=' + m[1];
-  assert.equal(shared.getSetting('design_commentsPanelOpen', true), false);
+  assert.equal(shared.getSetting('live_commentsPanelOpen', true), false);
   assert.equal(shared.getSetting('theme', 'system'), 'dark');
   assert.equal(shared.getSetting('missing', 'fallback'), 'fallback');
 });
@@ -72,7 +73,7 @@ test('readThemeFromSettings parses JSON crit-settings cookie', () => {
 });
 
 // updateCommentCountIndicator — navbar pill parity helper. Both code-review
-// (app.js) and design-mode (design-mode.js) call this so the resolved-state
+// (app.js) and live-mode (live-mode.js) call this so the resolved-state
 // class, count text, and tooltip stay in sync. Tests use a fresh sandbox
 // because the helper reads document.getElementById, which the lightweight
 // shim above (cookie-only) doesn't implement.
@@ -486,7 +487,7 @@ test('waitForSession: AbortSignal aborts mid-poll', async () => {
 // ===== installSidebarResize =====
 // Pure-math + behavioural tests for the shared sidebar/panel resize helper.
 // The helper owns pointer capture, the body.sidebar-resizing class (cursor
-// lock — design-mode used to flicker without it), persistence on pointerup,
+// lock — live-mode used to flicker without it), persistence on pointerup,
 // and min clamping. All four are pinned below.
 //
 // Pure math via computeResizeDelta first, then DOM-level behaviour through
@@ -596,7 +597,7 @@ test('installSidebarResize: min is respected during drag', () => {
 
 test('installSidebarResize: width persisted via setSetting on pointerup', () => {
   const { shared: s, handle, panel, doc } = makeResizeSandbox(400);
-  s.installSidebarResize(handle, panel, { settingKey: 'design_commentsPanelWidth', min: 200, edge: 'left' });
+  s.installSidebarResize(handle, panel, { settingKey: 'live_commentsPanelWidth', min: 200, edge: 'left' });
   handle.dispatch('pointerdown', { button: 0, pointerId: 1, clientX: 1000 });
   handle.dispatch('pointermove', { pointerId: 1, clientX: 850 }); // w=550
   handle.dispatch('pointerup', { pointerId: 1, clientX: 850 });
@@ -604,7 +605,7 @@ test('installSidebarResize: width persisted via setSetting on pointerup', () => 
   const m = doc.cookie.match(/^crit-settings=([^;]*)/);
   assert.ok(m, 'crit-settings cookie was written');
   const parsed = JSON.parse(decodeURIComponent(m[1]));
-  assert.equal(parsed.design_commentsPanelWidth, 550);
+  assert.equal(parsed.live_commentsPanelWidth, 550);
 });
 
 test('installSidebarResize: applies persisted width on install', () => {

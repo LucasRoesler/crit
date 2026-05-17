@@ -71,7 +71,7 @@ func runSmokeTest(origin string) smokeResult {
 		return smokeResult{
 			kind:                 smokeNon2xx,
 			fatal:                false,
-			message:              fmt.Sprintf("upstream returned %d; design mode may not work as expected", resp.StatusCode),
+			message:              fmt.Sprintf("upstream returned %d; live mode may not work as expected", resp.StatusCode),
 			hasCSPFrameAncestors: hasCSP,
 		}
 	}
@@ -81,7 +81,7 @@ func runSmokeTest(origin string) smokeResult {
 		return smokeResult{
 			kind:    smokeNonHTML,
 			fatal:   true,
-			message: fmt.Sprintf("design mode needs HTML; this URL returns %q. Did you mean a different URL?", ct),
+			message: fmt.Sprintf("live mode needs HTML; this URL returns %q. Did you mean a different URL?", ct),
 		}
 	}
 
@@ -95,7 +95,7 @@ func runSmokeTest(origin string) smokeResult {
 		return smokeResult{
 			kind:                 smokeMissingBody,
 			fatal:                false,
-			message:              "couldn't find a </body> injection target; design-mode agent may not boot",
+			message:              "couldn't find a </body> injection target; live-mode agent may not boot",
 			hasCSPFrameAncestors: hasCSP,
 			frameworkNotes:       notes,
 		}
@@ -104,9 +104,9 @@ func runSmokeTest(origin string) smokeResult {
 	return smokeResult{kind: smokeOK, hasCSPFrameAncestors: hasCSP, frameworkNotes: notes}
 }
 
-// looksLikeDesignArgs returns true when args is exactly one element
+// looksLikeLiveArgs returns true when args is exactly one element
 // that parses as an http:// or https:// URL.
-func looksLikeDesignArgs(args []string) bool {
+func looksLikeLiveArgs(args []string) bool {
 	if len(args) != 1 {
 		return false
 	}
@@ -117,27 +117,27 @@ func looksLikeDesignArgs(args []string) bool {
 	return u.Scheme == "http" || u.Scheme == "https"
 }
 
-// connectToDesignDaemon attaches the current CLI to an already-running design
+// connectToLiveDaemon attaches the current CLI to an already-running live
 // daemon for key, blocking on its review session. Returns true when an alive
 // daemon was found and the review session has completed; false when the caller
 // should spawn a fresh daemon.
-func connectToDesignDaemon(key string) bool {
+func connectToLiveDaemon(key string) bool {
 	entry, alive := findAliveSession(key)
 	if !alive {
 		return false
 	}
-	fmt.Fprintf(os.Stderr, "[crit] connected to design daemon at http://localhost:%d (proxy :%d)\n",
+	fmt.Fprintf(os.Stderr, "[crit] connected to live daemon at http://localhost:%d (proxy :%d)\n",
 		entry.Port, entry.Port+1)
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/design\n", entry.Port)
+	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/live\n", entry.Port)
 	if !daemonHasBrowser(entry) {
-		go openBrowser(fmt.Sprintf("http://localhost:%d/design", entry.Port))
+		go openBrowser(fmt.Sprintf("http://localhost:%d/live", entry.Port))
 	}
 	runReviewClient(entry)
 	return true
 }
 
-// runDesign is the entry point for `crit design <url>`.
-func runDesign(args []string) {
+// runLive is the entry point for `crit live <url>`.
+func runLive(args []string) {
 	rawURL := ""
 	for _, a := range args {
 		if len(a) > 0 && a[0] != '-' {
@@ -146,12 +146,12 @@ func runDesign(args []string) {
 		}
 	}
 	if rawURL == "" {
-		fmt.Fprintln(os.Stderr, "Usage: crit design <url>")
+		fmt.Fprintln(os.Stderr, "Usage: crit live <url>")
 		os.Exit(1)
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		fmt.Fprintf(os.Stderr, "crit design: %q is not a valid http/https URL\n", rawURL)
+		fmt.Fprintf(os.Stderr, "crit live: %q is not a valid http/https URL\n", rawURL)
 		os.Exit(1)
 	}
 	origin := u.Scheme + "://" + u.Host
@@ -178,27 +178,27 @@ func runDesign(args []string) {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	key := designSessionKey(cwd, origin)
-	if connectToDesignDaemon(key) {
+	key := liveSessionKey(cwd, origin)
+	if connectToLiveDaemon(key) {
 		return
 	}
 
 	// 3. Spawn daemon via _serve. startDaemon prepends "_serve" itself.
-	daemonArgs := []string{"--design-origin", origin}
+	daemonArgs := []string{"--live-origin", origin}
 	entry, err := startDaemon(key, daemonArgs)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: could not start design daemon: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: could not start live daemon: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Fprintf(os.Stderr, "[crit] starting daemon on :%d (api), :%d (proxy)\n",
 		entry.Port, entry.Port+1)
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/design\n", entry.Port)
+	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/live\n", entry.Port)
 
 	installDaemonSignalHandler(entry.PID)
 
 	// 4. Open browser.
-	go openBrowser(fmt.Sprintf("http://localhost:%d/design", entry.Port))
+	go openBrowser(fmt.Sprintf("http://localhost:%d/live", entry.Port))
 
 	// 5. Block until review complete.
 	runReviewClient(entry)
