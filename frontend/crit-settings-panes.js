@@ -304,7 +304,7 @@
         if (alreadyDismissed) {
           html += '<span class="config-card-dismissed" id="updateDismissedNote">Dismissed — will remind you on next version</span>';
         } else {
-          html += ‘<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="’ + esc(cfg.latest_version) + ‘">Don\’t remind me until next version</button>’;
+          html += '<button type="button" class="config-card-dismiss" id="updateDismissBtn" data-dismiss-version="' + esc(cfg.latest_version) + '">Don\'t remind me until next version</button>';
         }
         html += '</div></div></div>';
       }
@@ -382,7 +382,7 @@
               if (intAlreadyDismissed) {
                 html += '<span class="config-card-dismissed" id="integrationDismissedNote">Dismissed — will remind you when this integration changes</span>';
               } else {
-                html += ‘<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="’ + esc(si.agent) + ‘" data-hash="’ + esc(si.hash) + ‘">Don\’t remind me until next version</button>’;
+                html += '<button type="button" class="config-card-dismiss" id="integrationDismissBtn" data-agent="' + esc(si.agent) + '" data-hash="' + esc(si.hash) + '">Don\'t remind me until next version</button>';
               }
               html += '</div></div>';
             }
