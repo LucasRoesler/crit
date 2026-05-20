@@ -125,7 +125,7 @@ test.describe('Diff Rendering — Split Mode (default)', () => {
     const splitSide = routesSection.locator('.diff-split-side').first();
     await splitSide.hover();
 
-    const commentBtn = splitSide.locator('.diff-comment-btn');
+    const commentBtn = splitSide.locator('.diff-gutter-num').first();
     await expect(commentBtn).toBeVisible();
   });
 });
@@ -250,7 +250,7 @@ test.describe('Unified Mode — Drag Indicator Across Line Types', () => {
     // Start drag from the addition line
     const addLine = allLines.nth(addIdx);
     await addLine.scrollIntoViewIfNeeded();
-    const addBtn = addLine.locator('.diff-comment-btn');
+    const addBtn = addLine.locator('.diff-gutter-num').first();
     await addLine.hover();
     await expect(addBtn).toBeVisible();
 
@@ -311,7 +311,7 @@ test.describe('Unified Mode — Drag Indicator Across Line Types', () => {
     const endLine = allLines.nth(startIdx + 3);
     await startLine.scrollIntoViewIfNeeded();
 
-    const startBtn = startLine.locator('.diff-comment-btn');
+    const startBtn = startLine.locator('.diff-gutter-num').first();
     await startLine.hover();
     await expect(startBtn).toBeVisible();
 

@@ -249,27 +249,11 @@ test.describe('Diff Comments — Split Mode', () => {
     await loadPage(page);
   });
 
-  test('hovering a diff line shows the + button', async ({ page }) => {
-    const section = goSection(page);
-    await expect(section).toBeVisible();
-
-    // Find an addition line in split mode
-    const additionSide = section.locator('.diff-split-side.addition').first();
-    await expect(additionSide).toBeVisible();
-    await additionSide.hover();
-
-    const commentBtn = additionSide.locator('.diff-comment-btn');
-    await expect(commentBtn).toBeVisible();
-  });
-
-  test('clicking + button on a diff line opens comment form', async ({ page }) => {
+  test('clicking diff gutter on a diff line opens comment form', async ({ page }) => {
     const section = goSection(page);
 
     const additionSide = section.locator('.diff-split-side.addition').first();
-    await additionSide.hover();
-
-    const commentBtn = additionSide.locator('.diff-comment-btn');
-    await commentBtn.click();
+    await additionSide.locator('.diff-gutter-num').first().click();
 
     const form = page.locator('.comment-form');
     await expect(form).toBeVisible();
@@ -279,9 +263,7 @@ test.describe('Diff Comments — Split Mode', () => {
     const section = goSection(page);
 
     const additionSide = section.locator('.diff-split-side.addition').first();
-    await additionSide.hover();
-    const commentBtn = additionSide.locator('.diff-comment-btn');
-    await commentBtn.click();
+    await additionSide.locator('.diff-gutter-num').first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Diff comment in split mode');
@@ -299,9 +281,7 @@ test.describe('Diff Comments — Split Mode', () => {
     await expect(section).toBeVisible();
 
     const additionSide = section.locator('.diff-split-side.addition').first();
-    await additionSide.hover();
-    const commentBtn = additionSide.locator('.diff-comment-btn');
-    await commentBtn.click();
+    await additionSide.locator('.diff-gutter-num').first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Comment on new code');
@@ -316,8 +296,7 @@ test.describe('Diff Comments — Split Mode', () => {
     const section = goSection(page);
 
     const additionSide = section.locator('.diff-split-side.addition').first();
-    await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('This has **bold**, `code`, and a [link](https://test.com)');
@@ -348,10 +327,7 @@ test.describe('Diff Comments — Unified Mode', () => {
 
     const additionLine = section.locator('.diff-container.unified .diff-line.addition').first();
     await expect(additionLine).toBeVisible();
-    await additionLine.hover();
-
-    const commentBtn = additionLine.locator('.diff-comment-btn');
-    await commentBtn.click();
+    await additionLine.locator('.diff-gutter-num').first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Unified mode comment');
@@ -366,9 +342,7 @@ test.describe('Diff Comments — Unified Mode', () => {
     const section = goSection(page);
 
     const additionLine = section.locator('.diff-container.unified .diff-line.addition').first();
-    await additionLine.hover();
-    const commentBtn = additionLine.locator('.diff-comment-btn');
-    await commentBtn.click();
+    await additionLine.locator('.diff-gutter-num').first().click();
 
     const formWrapper = section.locator('.comment-form-wrapper');
     await expect(formWrapper).toBeVisible();
@@ -394,8 +368,7 @@ test.describe('Cross-File Comments', () => {
     // Open comment form on server.go (diff file)
     const serverSection = goSection(page);
     const additionSide = serverSection.locator('.diff-split-side.addition').first();
-    await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().click();
 
     // Form should be open
     await expect(serverSection.locator('.comment-form')).toBeVisible();
@@ -406,8 +379,7 @@ test.describe('Cross-File Comments', () => {
     // Now open comment form on handler.js
     const handlerSection = jsSection(page);
     const jsAdditionSide = handlerSection.locator('.diff-split-side.addition').first();
-    await jsAdditionSide.hover();
-    await jsAdditionSide.locator('.diff-comment-btn').click();
+    await jsAdditionSide.locator('.diff-gutter-num').first().click();
 
     // Both forms should be visible
     await expect(page.locator('.comment-form')).toHaveCount(2);

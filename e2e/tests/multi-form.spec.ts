@@ -12,7 +12,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
 
     const firstForm = goSec.locator('.comment-form');
     await expect(firstForm).toBeVisible();
@@ -26,7 +26,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
 
     const secondForm = jsSec.locator('.comment-form');
     await expect(secondForm).toBeVisible();
@@ -46,7 +46,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     await expect(goSec.locator('.comment-form')).toBeVisible();
 
     // Open form on handler.js without filling first
@@ -54,7 +54,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
 
     // First (empty) form should be closed; only second visible
     await expect(jsSec.locator('.comment-form')).toBeVisible();
@@ -67,7 +67,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     const firstForm = goSec.locator('.comment-form');
     await firstForm.locator('textarea').fill('Keep this open');
 
@@ -76,7 +76,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
     const secondForm = jsSec.locator('.comment-form');
     await secondForm.locator('textarea').fill('Submit this one');
 
@@ -97,7 +97,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     const firstForm = goSec.locator('.comment-form');
     await firstForm.locator('textarea').fill('Keep this open');
 
@@ -106,7 +106,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
     const secondForm = jsSec.locator('.comment-form');
     await expect(secondForm).toBeVisible();
 
@@ -126,7 +126,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     const firstForm = goSec.locator('.comment-form');
     await firstForm.locator('textarea').fill('Keep this open');
 
@@ -135,7 +135,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
     const secondForm = jsSec.locator('.comment-form');
     await expect(secondForm).toBeVisible();
 
@@ -155,7 +155,7 @@ test.describe('Multi-Form Comments', () => {
     const goSec = goSection(page);
     const goAddition = goSec.locator('.diff-split-side.addition').first();
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     const firstForm = goSec.locator('.comment-form');
     await firstForm.locator('textarea').fill('Keep this open');
 
@@ -164,7 +164,7 @@ test.describe('Multi-Form Comments', () => {
     const jsAddition = jsSec.locator('.diff-split-side.addition').first();
     await jsAddition.scrollIntoViewIfNeeded();
     await jsAddition.hover();
-    await jsAddition.locator('.diff-comment-btn').click();
+    await jsAddition.locator('.diff-gutter-num').first().first().click();
     const secondForm = jsSec.locator('.comment-form');
     await secondForm.locator('textarea').fill('Submit via shortcut');
 
@@ -186,7 +186,7 @@ test.describe('Multi-Form Comments', () => {
 
     // Open form
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
     const form = goSec.locator('.comment-form');
     await expect(form).toBeVisible();
 
@@ -195,7 +195,7 @@ test.describe('Multi-Form Comments', () => {
 
     // Click same gutter again
     await goAddition.hover();
-    await goAddition.locator('.diff-comment-btn').click();
+    await goAddition.locator('.diff-gutter-num').first().first().click();
 
     // Still only one form, text preserved
     await expect(goSec.locator('.comment-form')).toHaveCount(1);
@@ -263,7 +263,7 @@ test.describe('Multi-Form Comments', () => {
 
     // Open form on first addition
     await firstAdd.hover();
-    await firstAdd.locator('.diff-comment-btn').click();
+    await firstAdd.locator('.diff-gutter-num').first().first().click();
     await expect(goSec.locator('.comment-form')).toHaveCount(1);
     // Fill so it isn't auto-closed when the second form opens
     await goSec.locator('.comment-form textarea').fill('first');
@@ -271,7 +271,7 @@ test.describe('Multi-Form Comments', () => {
     // Open form on second addition
     await secondAdd.scrollIntoViewIfNeeded();
     await secondAdd.hover();
-    await secondAdd.locator('.diff-comment-btn').click();
+    await secondAdd.locator('.diff-gutter-num').first().first().click();
     await expect(goSec.locator('.comment-form')).toHaveCount(2);
 
     // First addition's line should now be form-selected

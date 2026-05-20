@@ -221,7 +221,7 @@ test.describe('Leading Spacer — Expanded Lines Are Commentable', () => {
     await splitSide.scrollIntoViewIfNeeded();
     await splitSide.hover();
 
-    const commentBtn = splitSide.locator('.diff-comment-btn');
+    const commentBtn = splitSide.locator('.diff-gutter-num').first().first();
     await expect(commentBtn).toBeVisible();
   });
 });

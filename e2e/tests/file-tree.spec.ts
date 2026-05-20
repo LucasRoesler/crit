@@ -143,7 +143,7 @@ test.describe('File Tree Comment Badges — Git Mode', () => {
     const section = page.locator('#file-section-server\\.go');
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
     await page.locator('.comment-form textarea').fill('Badge test');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -162,7 +162,7 @@ test.describe('File Tree Comment Badges — Git Mode', () => {
     const section = page.locator('#file-section-server\\.go');
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
     await page.locator('.comment-form textarea').fill('Badge delete test');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();

@@ -168,8 +168,8 @@ test.describe('Diff Drag Selection — Split Mode', () => {
     await expect(additionSides.first()).toBeVisible();
 
     // Get the first and a subsequent addition side's comment button
-    const firstBtn = additionSides.nth(0).locator('.diff-comment-btn');
-    const secondBtn = additionSides.nth(1).locator('.diff-comment-btn');
+    const firstBtn = additionSides.nth(0).locator('.diff-gutter-num').first();
+    const secondBtn = additionSides.nth(1).locator('.diff-gutter-num').first();
 
     // Hover first to make buttons visible
     await additionSides.nth(0).hover();
@@ -186,14 +186,14 @@ test.describe('Diff Drag Selection — Split Mode', () => {
     await expect(header).toContainText('Line');
   });
 
-  test('single click on diff-comment-btn opens single-line comment form', async ({ page }) => {
+  test('single click on diff-comment-gutter opens single-line comment form', async ({ page }) => {
     const section = goSection(page);
     await expect(section).toBeVisible();
 
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
 
-    const commentBtn = additionSide.locator('.diff-comment-btn');
+    const commentBtn = additionSide.locator('.diff-gutter-num').first();
     await expect(commentBtn).toBeVisible();
     await commentBtn.click();
 
@@ -213,8 +213,8 @@ test.describe('Diff Drag Selection — Split Mode', () => {
     const additionSides = section.locator('.diff-split-side.addition');
     await expect(additionSides.first()).toBeVisible();
 
-    const firstBtn = additionSides.nth(0).locator('.diff-comment-btn');
-    const thirdBtn = additionSides.nth(2).locator('.diff-comment-btn');
+    const firstBtn = additionSides.nth(0).locator('.diff-gutter-num').first();
+    const thirdBtn = additionSides.nth(2).locator('.diff-gutter-num').first();
 
     await additionSides.nth(0).hover();
     await expect(firstBtn).toBeAttached();
@@ -249,8 +249,8 @@ test.describe('Diff Drag Selection — Unified Mode', () => {
     const additionLines = section.locator('.diff-container.unified .diff-line.addition');
     await expect(additionLines.first()).toBeVisible();
 
-    const firstBtn = additionLines.nth(0).locator('.diff-comment-btn');
-    const secondBtn = additionLines.nth(1).locator('.diff-comment-btn');
+    const firstBtn = additionLines.nth(0).locator('.diff-gutter-num').first();
+    const secondBtn = additionLines.nth(1).locator('.diff-gutter-num').first();
 
     await additionLines.nth(0).hover();
     await expect(firstBtn).toBeAttached();
@@ -278,8 +278,8 @@ test.describe('Diff Drag Selection — Unified Mode', () => {
     const count = await commentableLines.count();
     expect(count).toBeGreaterThanOrEqual(2);
 
-    const firstBtn = commentableLines.nth(0).locator('.diff-comment-btn');
-    const thirdBtn = commentableLines.nth(2).locator('.diff-comment-btn');
+    const firstBtn = commentableLines.nth(0).locator('.diff-gutter-num').first();
+    const thirdBtn = commentableLines.nth(2).locator('.diff-gutter-num').first();
 
     await commentableLines.nth(0).hover();
     await expect(firstBtn).toBeAttached();
@@ -301,8 +301,8 @@ test.describe('Diff Drag Selection — Unified Mode', () => {
     const additionLines = section.locator('.diff-container.unified .diff-line.addition');
     await expect(additionLines.first()).toBeVisible();
 
-    const firstBtn = additionLines.nth(0).locator('.diff-comment-btn');
-    const secondBtn = additionLines.nth(1).locator('.diff-comment-btn');
+    const firstBtn = additionLines.nth(0).locator('.diff-gutter-num').first();
+    const secondBtn = additionLines.nth(1).locator('.diff-gutter-num').first();
 
     await additionLines.nth(0).hover();
     await expect(firstBtn).toBeAttached();
@@ -348,9 +348,9 @@ test.describe('Diff Drag Selection — Unified Mode', () => {
 
     await firstDel.scrollIntoViewIfNeeded();
     await firstDel.hover();
-    const firstBtn = firstDel.locator('.diff-comment-btn');
+    const firstBtn = firstDel.locator('.diff-gutter-num').first();
     await expect(firstBtn).toBeAttached();
-    const secondBtn = lastDel.locator('.diff-comment-btn');
+    const secondBtn = lastDel.locator('.diff-gutter-num').first();
 
     await dragBetween(page, firstBtn, secondBtn);
 

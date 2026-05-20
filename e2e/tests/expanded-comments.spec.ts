@@ -35,7 +35,7 @@ async function findContextRightSide(section: import('@playwright/test').Locator)
     const hasEmpty = await right.evaluate(el => el.classList.contains('empty'));
     if (!hasAddition && !hasDeletion && !hasEmpty) {
       // Verify it has a line number (not empty)
-      const numText = await right.locator('.diff-gutter-num').textContent();
+      const numText = await right.locator('.diff-gutter-num').first().textContent();
       if (numText && numText.trim()) {
         return right;
       }
@@ -54,7 +54,7 @@ async function findContextLeftSide(section: import('@playwright/test').Locator) 
     const hasDeletion = await left.evaluate(el => el.classList.contains('deletion'));
     const hasEmpty = await left.evaluate(el => el.classList.contains('empty'));
     if (!hasDeletion && !hasEmpty) {
-      const numText = await left.locator('.diff-gutter-num').textContent();
+      const numText = await left.locator('.diff-gutter-num').first().textContent();
       if (numText && numText.trim()) {
         return left;
       }
@@ -79,7 +79,7 @@ test.describe('Expanded Context Comments — Split Mode (New Side)', () => {
     expect(rightSide).not.toBeNull();
     await rightSide!.hover();
 
-    const commentBtn = rightSide!.locator('.diff-comment-btn');
+    const commentBtn = rightSide!.locator('.diff-gutter-num').first();
     await expect(commentBtn).toBeVisible();
     await commentBtn.click();
 
@@ -100,7 +100,7 @@ test.describe('Expanded Context Comments — Split Mode (New Side)', () => {
     const rightSide = await findContextRightSide(section);
     expect(rightSide).not.toBeNull();
     await rightSide!.hover();
-    await rightSide!.locator('.diff-comment-btn').click();
+    await rightSide!.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Original expanded comment');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -129,7 +129,7 @@ test.describe('Expanded Context Comments — Split Mode (New Side)', () => {
     const rightSide = await findContextRightSide(section);
     expect(rightSide).not.toBeNull();
     await rightSide!.hover();
-    await rightSide!.locator('.diff-comment-btn').click();
+    await rightSide!.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Delete me expanded');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -158,7 +158,7 @@ test.describe('Expanded Context Comments — Split Mode (Old Side)', () => {
     expect(leftSide).not.toBeNull();
     await leftSide!.hover();
 
-    const commentBtn = leftSide!.locator('.diff-comment-btn');
+    const commentBtn = leftSide!.locator('.diff-gutter-num').first();
     await expect(commentBtn).toBeVisible();
     await commentBtn.click();
 
@@ -178,7 +178,7 @@ test.describe('Expanded Context Comments — Split Mode (Old Side)', () => {
     const leftSide = await findContextLeftSide(section);
     expect(leftSide).not.toBeNull();
     await leftSide!.hover();
-    await leftSide!.locator('.diff-comment-btn').click();
+    await leftSide!.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Original old side comment');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -201,7 +201,7 @@ test.describe('Expanded Context Comments — Split Mode (Old Side)', () => {
     const leftSide = await findContextLeftSide(section);
     expect(leftSide).not.toBeNull();
     await leftSide!.hover();
-    await leftSide!.locator('.diff-comment-btn').click();
+    await leftSide!.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Delete old side');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -235,7 +235,7 @@ test.describe('Expanded Context Comments — Unified Mode', () => {
     await expect(contextLine).toBeVisible();
     await contextLine.hover();
 
-    const commentBtn = contextLine.locator('.diff-comment-btn');
+    const commentBtn = contextLine.locator('.diff-gutter-num').first();
     await expect(commentBtn).toBeVisible();
     await commentBtn.click();
 
@@ -255,7 +255,7 @@ test.describe('Expanded Context Comments — Unified Mode', () => {
     // Context lines are already visible from auto-expansion
     const contextLine = section.locator('.diff-container.unified .diff-line:not(.addition):not(.deletion)').first();
     await contextLine.hover();
-    await contextLine.locator('.diff-comment-btn').click();
+    await contextLine.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Original unified context');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();
@@ -278,7 +278,7 @@ test.describe('Expanded Context Comments — Unified Mode', () => {
     // Context lines are already visible from auto-expansion
     const contextLine = section.locator('.diff-container.unified .diff-line:not(.addition):not(.deletion)').first();
     await contextLine.hover();
-    await contextLine.locator('.diff-comment-btn').click();
+    await contextLine.locator('.diff-gutter-num').first().click();
     await page.locator('.comment-form textarea').fill('Delete unified context');
     await page.locator('.comment-form .btn-primary').click();
     await expect(section.locator('.comment-card')).toBeVisible();

@@ -43,7 +43,7 @@ test.describe('Auto-expand small gaps — Split Mode', () => {
       const isDeletion = await right.evaluate(el => el.classList.contains('deletion'));
       const isEmpty = await right.evaluate(el => el.classList.contains('empty'));
       if (!isAddition && !isDeletion && !isEmpty) {
-        const numText = await right.locator('.diff-gutter-num').textContent();
+        const numText = await right.locator('.diff-gutter-num').first().textContent();
         if (numText && numText.trim()) {
           foundContext = true;
           // Verify line number is a positive integer
@@ -71,12 +71,9 @@ test.describe('Auto-expand small gaps — Split Mode', () => {
       const isDeletion = await right.evaluate(el => el.classList.contains('deletion'));
       const isEmpty = await right.evaluate(el => el.classList.contains('empty'));
       if (!isAddition && !isDeletion && !isEmpty) {
-        const numText = await right.locator('.diff-gutter-num').textContent();
+        const numText = await right.locator('.diff-gutter-num').first().textContent();
         if (numText && numText.trim()) {
-          await right.hover();
-          const commentBtn = right.locator('.diff-comment-btn');
-          await expect(commentBtn).toBeVisible();
-          await commentBtn.click();
+          await right.locator('.diff-gutter-num').first().click();
 
           const textarea = page.locator('.comment-form textarea');
           await expect(textarea).toBeVisible();
@@ -142,11 +139,7 @@ test.describe('Auto-expand small gaps — Unified Mode', () => {
 
     const contextLine = section.locator('.diff-container.unified .diff-line:not(.addition):not(.deletion)').first();
     await expect(contextLine).toBeVisible();
-    await contextLine.hover();
-
-    const commentBtn = contextLine.locator('.diff-comment-btn');
-    await expect(commentBtn).toBeVisible();
-    await commentBtn.click();
+    await contextLine.locator('.diff-gutter-num').first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await expect(textarea).toBeVisible();

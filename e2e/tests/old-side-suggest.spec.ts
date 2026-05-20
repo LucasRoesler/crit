@@ -14,7 +14,7 @@ test.describe('Old-side suggest button', () => {
     const deletionSide = section.locator('.diff-split-side.deletion[data-diff-line-num]').first();
     await deletionSide.scrollIntoViewIfNeeded();
     await deletionSide.hover();
-    await deletionSide.locator('.diff-comment-btn').click();
+    await deletionSide.locator('.diff-gutter-num').first().first().click();
 
     // Click the suggest button
     const suggestBtn = page.locator('.comment-form .btn', { hasText: '± Suggest' });
@@ -39,7 +39,7 @@ test.describe('Old-side suggest button', () => {
     const additionSide = section.locator('.diff-split-side.addition[data-diff-line-num]').first();
     await additionSide.scrollIntoViewIfNeeded();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
 
     // Click suggest
     const suggestBtn = page.locator('.comment-form .btn', { hasText: '± Suggest' });

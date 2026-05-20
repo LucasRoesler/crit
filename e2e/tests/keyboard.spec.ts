@@ -181,7 +181,7 @@ test.describe('Keyboard Comment Shortcuts — Diff', () => {
     const section = goSection(page);
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    const commentBtn = additionSide.locator('.diff-comment-btn');
+    const commentBtn = additionSide.locator('.diff-gutter-num').first().first();
     await commentBtn.click();
 
     const textarea = page.locator('.comment-form textarea');
@@ -209,7 +209,7 @@ test.describe('Keyboard Comment Shortcuts — Diff', () => {
     const section = goSection(page);
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    const commentBtn = additionSide.locator('.diff-comment-btn');
+    const commentBtn = additionSide.locator('.diff-gutter-num').first().first();
     await commentBtn.click();
 
     const textarea = page.locator('.comment-form textarea');

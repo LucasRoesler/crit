@@ -82,7 +82,7 @@ test.describe('Unstaged File Comments — pre-existing file', () => {
     await expect(additionSide).toBeVisible();
     await additionSide.hover();
 
-    const commentBtn = additionSide.locator('.diff-comment-btn');
+    const commentBtn = additionSide.locator('.diff-gutter-num').first().first();
     await expect(commentBtn).toBeVisible();
     await commentBtn.click();
 
@@ -111,7 +111,7 @@ test.describe('Unstaged File Comments — pre-existing file', () => {
     // Add a comment
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Badge test');
@@ -130,7 +130,7 @@ test.describe('Unstaged File Comments — pre-existing file', () => {
 
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Tree badge test');
@@ -151,7 +151,7 @@ test.describe('Unstaged File Comments — pre-existing file', () => {
 
     const additionSide = section.locator('.diff-split-side.addition').first();
     await additionSide.hover();
-    await additionSide.locator('.diff-comment-btn').click();
+    await additionSide.locator('.diff-gutter-num').first().first().click();
 
     const textarea = page.locator('.comment-form textarea');
     await textarea.fill('Persistent unstaged comment');
@@ -233,7 +233,7 @@ test.describe('Unstaged File Comments — runtime-created file (bug reproduction
     await expect(additionSide).toBeVisible({ timeout: 5000 });
     await additionSide.hover();
 
-    const commentBtn = additionSide.locator('.diff-comment-btn');
+    const commentBtn = additionSide.locator('.diff-gutter-num').first().first();
     await commentBtn.click();
 
     const textarea = page.locator('.comment-form textarea');
