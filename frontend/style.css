@@ -3060,6 +3060,14 @@ body.hide-resolved .comment-block:not(.panel-comment-block):has(.resolved-card) 
   white-space: pre;
   overflow-wrap: normal;
 }
+.main-content[data-wrap="off"] .diff-container {
+  overflow-x: auto;
+}
+.main-content[data-wrap="off"] .diff-content {
+  white-space: pre;
+  overflow-wrap: normal;
+  min-width: max-content;
+}
 
 /* ===== Sidebar Resize Handles ===== */
 /* Thin draggable strip on the inner edge of each sidebar. Default transparent;
@@ -5308,7 +5316,9 @@ body.sidebar-resizing * {
   .diff-view,
   .diff-view-unified { overflow-x: auto; }
   .diff-content { overflow: clip; }
-  .diff-content span {
+  /* Only constrain spans when wrap is on — wrap-off switches to horizontal
+     scroll so spans need to extend naturally beyond the container. */
+  .main-content:not([data-wrap="off"]) .diff-content span {
     display: inline-block;
     max-width: 100%;
     overflow: hidden;
