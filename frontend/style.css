@@ -13,6 +13,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -22,6 +23,7 @@ body {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* ===== Scrollbar ===== */
@@ -957,7 +959,7 @@ body.visual-mode .diff-split-row.focused .diff-split-side {
   cursor: pointer;
 }
 
-/* .line-add is invisible — the ::before on .line-num is the visible affordance */
+/* .line-add: desktop shows the blue box (see @media pointer:fine below); touch uses ::before on .line-num */
 
 /* During drag */
 body.dragging { user-select: none; cursor: grabbing; }
@@ -997,12 +999,30 @@ body.dragging { user-select: none; cursor: grabbing; }
 /* Pointer cursor on commentable line gutters */
 .line-block:not(:has(.diff-no-comment)) .line-gutter { cursor: pointer; }
 
-/* .line-add: kept in DOM for pointer events and drag state, but never rendered */
+/* .line-add: touch — invisible, kept for pointer events only */
 .line-add {
   width: 20px;
   height: 20px;
   opacity: 0;
   pointer-events: none;
+}
+/* Desktop: restore blue + button in the comment gutter */
+@media (pointer: fine) {
+  .line-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: var(--crit-brand);
+    color: var(--crit-fg-on-brand);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    transition: opacity 0.1s;
+  }
+  .line-comment-gutter:hover .line-add { opacity: 1; }
+  body.dragging .line-comment-gutter.drag-endpoint .line-add { opacity: 1; }
+  body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { opacity: 0; }
 }
 
 /* ===== Line Content (rendered markdown) ===== */
@@ -3791,11 +3811,24 @@ body.sidebar-resizing * {
   font-weight: 500;
   color: var(--crit-editor-fg);
   flex: 1;
-  display: inline-flex;
+  min-width: 0;
+  display: flex;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
 }
 .file-header-name .dir { color: var(--crit-editor-fg-muted); }
+/* Truncate long paths; copy button (flex-shrink:0 by default) stays full size */
+.file-header-name .dir,
+.file-header-name .filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.file-header-name .dir { flex-shrink: 2; }
+.file-header-name .filename { flex-shrink: 1; }
+.file-header-copy-path { flex-shrink: 0; }
 .file-header-badge {
   font-size: 10px;
   font-weight: 600;
@@ -4114,6 +4147,34 @@ body.sidebar-resizing * {
 /* Don't show + on line numbers that aren't commentable (no diff context) */
 .diff-gutter-num:not(.has-comment-btn)::before { display: none; }
 .diff-gutter-num.has-comment-btn { cursor: pointer; }
+/* Desktop: blue + button overlaid inside .diff-comment-gutter, pointer-events off so
+   hit target stays on .diff-gutter-num. Absolute so it has no layout footprint. */
+.diff-comment-btn {
+  display: none;
+  position: absolute;
+  top: 1px;
+  width: 20px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: var(--crit-brand);
+  color: var(--crit-fg-on-brand);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  line-height: 1;
+  user-select: none;
+}
+@media (pointer: fine) {
+  .diff-comment-btn { display: flex; }
+  .diff-line:hover .diff-comment-btn,
+  .diff-split-side:hover .diff-comment-btn { opacity: 1; }
+  .diff-comment-gutter.drag-endpoint .diff-comment-btn { opacity: 1; }
+  .diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn { opacity: 0; }
+}
 /* Dedicated comment gutter column between line numbers and content */
 .diff-comment-gutter {
   position: relative;
@@ -5235,6 +5296,25 @@ body.sidebar-resizing * {
   .diff-mode-toggle { display: none !important; }
   .header-context { display: none; }
   .base-branch-picker { display: none; }
+  /* Hide "Viewed" checkbox — it has margin-left:auto which consumes all remaining
+     flex space in the file header, leaving no room for the filename on narrow screens. */
+  .file-header-viewed { display: none; }
+  /* Chrome mobile computes viewport width from getBoundingClientRect() of all
+     descendants, including those inside overflow:clip containers. A wrapping inline
+     <span> (e.g. hljs-string) has a bounding rect that is the union of all its line
+     boxes — so a span that starts at column 10 and wraps at column 80 reports
+     right:80 even though its container clips at column 40. Converting these spans to
+     inline-block + max-width:100% + overflow:hidden constrains each span's bounding
+     rect to its container, which stops Chrome from expanding the scrollable viewport. */
+  .diff-container,
+  .diff-view,
+  .diff-view-unified { overflow-x: auto; }
+  .diff-content { overflow: clip; }
+  .diff-content span {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+  }
 }
 
 /* Mobile context bar — branch name + PR link, shown below the main header on mobile only. */

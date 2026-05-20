@@ -505,7 +505,11 @@
   let settingsPanelTab = 'settings';
   let cachedConfig = null; // populated on first panel open
 
-  let diffMode = getSetting('diffMode', 'split'); // 'split' or 'unified'
+  // Force unified on narrow viewports — split diff gives each pane ~180px which
+  // is too narrow for code and causes horizontal overflow on mobile.
+  let diffMode = window.matchMedia('(max-width: 768px)').matches
+    ? 'unified'
+    : getSetting('diffMode', 'split');
   let diffScope = getSetting('diffScope', 'all'); // 'all', 'branch', 'staged', or 'unstaged'
 
   // Single source of truth for hide-resolved state. Persisted via the
@@ -1919,7 +1923,7 @@
     header.innerHTML =
       '<div class="file-header-chevron"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></svg></div>' +
       '<svg class="file-header-icon" viewBox="0 0 16 16" fill="var(--crit-editor-fg-muted)"><path fill-rule="evenodd" d="M3.75 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25V6H9.75A1.75 1.75 0 0 1 8 4.25V1.5H3.75zm5.75.56v2.19c0 .138.112.25.25.25h2.19L9.5 2.06zM2 1.75C2 .784 2.784 0 3.75 0h5.086c.464 0 .909.184 1.237.513l3.414 3.414c.329.328.513.773.513 1.237v8.086A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25V1.75z"/></svg>' +
-      '<span class="file-header-name"><span class="dir">' + escapeHtml(dirPath) + '</span>' + escapeHtml(fileName) +
+      '<span class="file-header-name"><span class="dir">' + escapeHtml(dirPath) + '</span><span class="filename">' + escapeHtml(fileName) + '</span>' +
         '<button type="button" class="file-header-copy-path" aria-label="Copy file path">' + ICON_COPY_PATH + '</button>' +
       '</span>' +
       (showBadge ? '<span class="file-header-badge ' + escapeHtml(file.status) + '">' + escapeHtml(badgeLabel) + '</span>' : '') +
@@ -1946,7 +1950,7 @@
 
     // Toggle for markdown files — rendered as a sibling of the header (not inside it)
     // so it doesn't inherit the header's sticky background.
-    // Git mode: Document | Diff. Files mode: Raw | Rendered [| Diff].
+    // Git mode: Document | Diff. Files mode with diff: Document | Diff.
     const hasDiff = file.diffHunks && file.diffHunks.length > 0;
     let toggleEl = null;
     if (file.fileType === 'markdown' && !diffActive && (session.mode !== 'git' || hasDiff)) {
@@ -1962,8 +1966,7 @@
           pillEnd;
       } else {
         toggleEl.innerHTML = pill +
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'raw' ? ' active' : '') + '" data-mode="raw"' + ap('raw') + '>Raw</button>' +
-          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Rendered</button>' +
+          '<button type="button" class="toggle-btn' + (file.viewMode === 'document' ? ' active' : '') + '" data-mode="document"' + ap('document') + '>Document</button>' +
           (hasDiff ? '<button type="button" class="toggle-btn' + (file.viewMode === 'diff' ? ' active' : '') + '" data-mode="diff"' + ap('diff') + '>Diff</button>' : '') +
           pillEnd;
       }
@@ -2069,7 +2072,6 @@
     body.className = 'file-body';
 
     const showDiff = file.viewMode === 'diff' || (file.fileType === 'code' && session.mode === 'git');
-    const showRaw = file.viewMode === 'raw' && file.fileType === 'markdown';
 
     if (file.orphaned) {
       const placeholder = document.createElement('div');
@@ -2103,8 +2105,6 @@
       body.appendChild(renderDiffHunks(file));
     } else if (diffActive && file.previousLineBlocks && file.previousLineBlocks.length > 0) {
       body.appendChild(diffMode === 'split' ? renderRenderedDiffSplit(file) : renderRenderedDiffUnified(file));
-    } else if (showRaw) {
-      body.appendChild(renderRawMarkdown(file));
     } else {
       body.appendChild(renderDocumentView(file));
     }
@@ -2454,20 +2454,6 @@
     return { added: added, modified: modified, deletionPoints: deletionPoints };
   }
 
-  // ===== Raw View (Markdown shown as syntax-highlighted source lines) =====
-  function renderRawMarkdown(file) {
-    const rawBlocks = buildCodeLineBlocks(file);
-    const saved = file.lineBlocks;
-    file.lineBlocks = rawBlocks;
-    try {
-      const view = renderDocumentView(file);
-      view.classList.add('code-document');
-      return view;
-    } finally {
-      file.lineBlocks = saved;
-    }
-  }
-
   // ===== Document View (Markdown) =====
   function renderDocumentView(file) {
     const container = document.createElement('div');
@@ -2476,8 +2462,7 @@
 
     const { commentsMap, rangeSet: commentRangeSet } = buildCommentIndices(file.comments);
 
-    // changeInfo is intentionally null for non-document callers (raw view, swapped lineBlocks).
-    const changeInfo = file.viewMode === 'document' ? getChangeInfo(file) : null;
+    const changeInfo = getChangeInfo(file);
     // Build a map of afterLine -> deletion marker for quick lookup
     const deletionMarkerMap = {};
     if (changeInfo) {
@@ -2720,6 +2705,12 @@
         if (isRangeEnd) col.classList.add('drag-range-end');
       }
     }
+
+    const btn = document.createElement('span');
+    btn.className = 'diff-comment-btn';
+    btn.textContent = '+';
+    btn.setAttribute('aria-hidden', 'true');
+    col.appendChild(btn);
 
     return col;
   }
