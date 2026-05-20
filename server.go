@@ -29,33 +29,48 @@ import (
 // so tests can shrink it. 30s comfortably under the server's 60s IdleTimeout.
 var sseHeartbeatInterval = 30 * time.Second
 
+// agentScriptFiles lists the JS files injected into live/preview iframes.
+// Used by server.go (route registration), preview.go (relative script tags),
+// and proxy.go (absolute script tags). Order matters: protocol first, then
+// helpers, then the main agent entry point last.
+var agentScriptFiles = []string{
+	"agent-protocol.js",
+	"agent-anchor-utils.js",
+	"agent-marker-overlay.js",
+	"agent-mutation-batcher.js",
+	"agent-resolution.js",
+	"agent-reanchor-state.js",
+	"crit-agent.js",
+}
+
 // Server handles HTTP requests for the crit review UI.
 type Server struct {
-	session           atomic.Pointer[Session]
-	mux               *http.ServeMux
-	assets            fs.FS
-	shareURL          string
-	proxyAuth         bool
-	authMu            sync.RWMutex // guards authToken + cfg.Auth* fields
-	authToken         string
-	prInfo            *PRInfo
-	prInfoMu          sync.RWMutex
-	author            string
-	agentCmd          string
-	currentVersion    string
-	latestVersion     string
-	versionMu         sync.RWMutex
-	staleIntegrations []staleFile
-	githubAPIURL      string // override for testing; defaults to "https://api.github.com"
-	port              int
-	status            *Status
-	initErr           atomic.Pointer[error]
-	projectDir        string
-	homeDir           string
-	cfg               Config
-	reviewPath        string
-	cliArgs           []string     // positional file args; flags (--pr, --range, etc.) are not preserved
-	prList            *prListCache // 60s cache for picker "Other PRs"
+	session             atomic.Pointer[Session]
+	mux                 *http.ServeMux
+	assets              fs.FS
+	shareURL            string
+	proxyAuth           bool
+	authMu              sync.RWMutex // guards authToken + cfg.Auth* fields
+	authToken           string
+	prInfo              *PRInfo
+	prInfoMu            sync.RWMutex
+	author              string
+	agentCmd            string
+	currentVersion      string
+	latestVersion       string
+	versionMu           sync.RWMutex
+	staleIntegrations   []staleFile
+	missingIntegrations []string
+	githubAPIURL        string // override for testing; defaults to "https://api.github.com"
+	port                int
+	status              *Status
+	initErr             atomic.Pointer[error]
+	projectDir          string
+	homeDir             string
+	cfg                 Config
+	reviewPath          string
+	cliArgs             []string     // positional file args; flags (--pr, --range, etc.) are not preserved
+	prList              *prListCache // 60s cache for picker "Other PRs"
 
 	// listenHost is the host the server is bound to (e.g. "127.0.0.1" or
 	// "0.0.0.0"). Set via SetListenHost after construction. When set to a
@@ -93,19 +108,19 @@ func NewServer(session *Session, frontendFS embed.FS, shareURL string, proxyAuth
 	mux.HandleFunc("/api/qr", s.handleQR)
 
 	// Preview-mode routes — NOT wrapped in withReady (page loads before session).
-	mux.HandleFunc("/preview", s.handlePreviewPage)
+	mux.HandleFunc("/preview", s.serveIndexHTML())
 	mux.HandleFunc("/preview-content/", s.handlePreviewContent)
 	mux.HandleFunc("/preview-content", s.handlePreviewContent)
 
 	// Live-mode routes — NOT wrapped in withReady.
-	mux.HandleFunc("/live", s.handleLivePage)
-	mux.HandleFunc("/crit-agent.js", s.handleCritAgentJS)
-	mux.HandleFunc("/agent-protocol.js", s.serveEmbeddedJS("agent-protocol.js"))
-	mux.HandleFunc("/agent-anchor-utils.js", s.serveEmbeddedJS("agent-anchor-utils.js"))
-	mux.HandleFunc("/agent-marker-overlay.js", s.serveEmbeddedJS("agent-marker-overlay.js"))
-	mux.HandleFunc("/agent-mutation-batcher.js", s.serveEmbeddedJS("agent-mutation-batcher.js"))
-	mux.HandleFunc("/agent-resolution.js", s.serveEmbeddedJS("agent-resolution.js"))
-	mux.HandleFunc("/agent-reanchor-state.js", s.serveEmbeddedJS("agent-reanchor-state.js"))
+	mux.HandleFunc("/live", s.serveIndexHTML())
+	for _, f := range agentScriptFiles {
+		if f == "crit-agent.js" {
+			mux.HandleFunc("/"+f, s.handleCritAgentJS)
+		} else {
+			mux.HandleFunc("/"+f, s.serveEmbeddedJS(f))
+		}
+	}
 	mux.HandleFunc("/agent-marker.css", s.serveEmbeddedCSS("agent-marker.css"))
 	mux.HandleFunc("/live-mode-pin-filter.js", s.serveEmbeddedJS("live-mode-pin-filter.js"))
 	mux.HandleFunc("/live-mode-resolution-gate.js", s.serveEmbeddedJS("live-mode-resolution-gate.js"))
@@ -420,6 +435,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		resp["stale_integrations"] = items
 	}
+	if len(s.missingIntegrations) > 0 {
+		resp["missing_integrations"] = s.missingIntegrations
+	}
 	s.prInfoMu.RLock()
 	prInfo := s.prInfo
 	s.prInfoMu.RUnlock()
@@ -518,19 +536,25 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-func (s *Server) handleLivePage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+// serveIndexHTML returns a handler that serves the embedded index.html shell.
+// Used for routes (such as /live and /preview) that all render the same shell.
+func (s *Server) serveIndexHTML() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		f, err := s.assets.Open("index.html")
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if _, err := io.Copy(w, f); err != nil {
+			log.Printf("serveIndexHTML: %v", err)
+		}
 	}
-	f, err := s.assets.Open("index.html")
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	defer f.Close()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.Copy(w, f)
 }
 
 func (s *Server) handleCritAgentJS(w http.ResponseWriter, r *http.Request) {

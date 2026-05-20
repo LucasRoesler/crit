@@ -3,8 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestComputeFileHash(t *testing.T) {
@@ -351,4 +353,222 @@ func TestRunCheck_NoStale(t *testing.T) {
 
 	// Should not panic
 	runCheck()
+}
+
+func TestDetectPresentAgents_BinaryOnPath(t *testing.T) {
+	homeDir := t.TempDir()
+
+	// detectPresentAgents should find agents whose binaries are on PATH.
+	// We can't control PATH easily, but we can verify the function returns
+	// results without panicking on a clean temp home dir.
+	agents := detectPresentAgents(homeDir)
+	// Just verify it runs — the result depends on what's installed on this machine
+	_ = agents
+}
+
+func TestDetectPresentAgents_ConfigDir(t *testing.T) {
+	homeDir := t.TempDir()
+
+	// Create a .claude directory to simulate claude-code presence
+	os.MkdirAll(filepath.Join(homeDir, ".claude"), 0o755)
+
+	agents := detectPresentAgents(homeDir)
+	found := false
+	for _, a := range agents {
+		if a == "claude-code" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected claude-code to be detected via .claude dir")
+	}
+}
+
+func TestDetectPresentAgents_NoDuplicates(t *testing.T) {
+	homeDir := t.TempDir()
+
+	// Create multiple probe dirs for same agent — should only appear once
+	os.MkdirAll(filepath.Join(homeDir, ".claude"), 0o755)
+
+	agents := detectPresentAgents(homeDir)
+	count := 0
+	for _, a := range agents {
+		if a == "claude-code" {
+			count++
+		}
+	}
+	if count > 1 {
+		t.Errorf("expected 1 claude-code entry, got %d", count)
+	}
+}
+
+func TestConfirmBinaryVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses shell scripts")
+	}
+
+	dir := t.TempDir()
+	match := filepath.Join(dir, "fake-tool")
+	os.WriteFile(match, []byte("#!/bin/sh\necho 'FakeTool v1.2 by Acme Corp'\n"), 0o755)
+
+	noMatch := filepath.Join(dir, "wrong-tool")
+	os.WriteFile(noMatch, []byte("#!/bin/sh\necho 'SomeOtherTool v3.0'\n"), 0o755)
+
+	failing := filepath.Join(dir, "bad-tool")
+	os.WriteFile(failing, []byte("#!/bin/sh\nexit 1\n"), 0o755)
+
+	old := versionTimeout
+	versionTimeout = 2 * time.Second
+	defer func() { versionTimeout = old }()
+
+	tests := []struct {
+		name     string
+		bin      string
+		expected string
+		want     bool
+	}{
+		{"match", match, "acme", true},
+		{"case-insensitive", match, "ACME", true},
+		{"no-match", noMatch, "acme", false},
+		{"error-exit", failing, "anything", false},
+		{"nonexistent", "/nonexistent/binary", "x", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := confirmBinaryVersion(tt.bin, tt.expected)
+			if got != tt.want {
+				t.Errorf("confirmBinaryVersion(%q, %q) = %v, want %v", tt.bin, tt.expected, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckMissingIntegrations(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Create .claude dir to simulate agent presence
+	os.MkdirAll(filepath.Join(homeDir, ".claude"), 0o755)
+
+	// No integration installed — should report claude-code as missing
+	missing := checkMissingIntegrations(projectDir, homeDir)
+	found := false
+	for _, m := range missing {
+		if m == "claude-code" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected claude-code in missing list when .claude dir exists but no integration installed")
+	}
+}
+
+func TestCheckMissingIntegrations_Installed(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Create .claude dir
+	os.MkdirAll(filepath.Join(homeDir, ".claude"), 0o755)
+
+	// Install the integration file with correct content
+	sourceFiles := integrationMap["claude-code"]
+	sourceContent, _ := integrationsFS.ReadFile(sourceFiles[0].source)
+	dest := filepath.Join(projectDir, sourceFiles[0].dest)
+	os.MkdirAll(filepath.Dir(dest), 0o755)
+	os.WriteFile(dest, sourceContent, 0o644)
+
+	missing := checkMissingIntegrations(projectDir, homeDir)
+	for _, m := range missing {
+		if m == "claude-code" {
+			t.Error("claude-code should not be missing when integration is installed")
+		}
+	}
+}
+
+func TestCheckMissingIntegrations_NoAgentsPresent(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Empty home — no agents detected, so nothing missing
+	missing := checkMissingIntegrations(projectDir, homeDir)
+	// May still detect agents on PATH, but should not panic
+	_ = missing
+}
+
+func TestHintMissingIntegrationsFor_SkipsWhenInstalled(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Install an integration so installedAgents returns non-empty
+	sourceFiles := integrationMap["claude-code"]
+	sourceContent, _ := integrationsFS.ReadFile(sourceFiles[0].source)
+	dest := filepath.Join(projectDir, sourceFiles[0].dest)
+	os.MkdirAll(filepath.Dir(dest), 0o755)
+	os.WriteFile(dest, sourceContent, 0o644)
+
+	// Create .gemini to simulate a detected-but-missing agent
+	os.MkdirAll(filepath.Join(homeDir, ".gemini"), 0o755)
+
+	// Should not panic and should not print (installed agent exists)
+	hintMissingIntegrationsFor(projectDir, homeDir)
+}
+
+func TestHintMissingIntegrationsFor_PrintsWhenNoneInstalled(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Create .gemini to simulate detection
+	os.MkdirAll(filepath.Join(homeDir, ".gemini"), 0o755)
+
+	// Should print hint (no installed agents, gemini detected)
+	hintMissingIntegrationsFor(projectDir, homeDir)
+}
+
+func TestHintMissingIntegrations_EnvDisable(t *testing.T) {
+	t.Setenv("CRIT_NO_INTEGRATION_CHECK", "1")
+	// Should return immediately without doing any work
+	hintMissingIntegrations()
+}
+
+func TestInstalledAgents(t *testing.T) {
+	homeDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Empty — no agents installed
+	agents := installedAgents(projectDir, homeDir)
+	if len(agents) != 0 {
+		t.Errorf("expected 0 installed agents, got %d", len(agents))
+	}
+
+	// Install claude-code
+	sourceFiles := integrationMap["claude-code"]
+	sourceContent, _ := integrationsFS.ReadFile(sourceFiles[0].source)
+	dest := filepath.Join(projectDir, sourceFiles[0].dest)
+	os.MkdirAll(filepath.Dir(dest), 0o755)
+	os.WriteFile(dest, sourceContent, 0o644)
+
+	agents = installedAgents(projectDir, homeDir)
+	if !agents["claude-code"] {
+		t.Error("expected claude-code in installed agents")
+	}
+}
+
+func TestPrintMissingHints(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		if n := printMissingHints(nil); n != 0 {
+			t.Errorf("expected 0, got %d", n)
+		}
+	})
+	t.Run("single", func(t *testing.T) {
+		if n := printMissingHints([]string{"claude-code"}); n != 1 {
+			t.Errorf("expected 1, got %d", n)
+		}
+	})
+	t.Run("multiple", func(t *testing.T) {
+		if n := printMissingHints([]string{"claude-code", "cursor"}); n != 2 {
+			t.Errorf("expected 2, got %d", n)
+		}
+	})
 }

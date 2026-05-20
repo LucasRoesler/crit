@@ -77,7 +77,11 @@
     }
     const sx = (win && typeof win.scrollX === 'number') ? win.scrollX : 0;
     const sy = (win && typeof win.scrollY === 'number') ? win.scrollY : 0;
-    const reads = markers.map(m => (m.target ? m.target.getBoundingClientRect() : null));
+    const reads = markers.map(m => {
+      if (!m.target) return null;
+      if (typeof m.target.isConnected !== 'undefined' && !m.target.isConnected) return null;
+      return m.target.getBoundingClientRect();
+    });
     for (let i = 0; i < markers.length; i++) {
       const m = markers[i];
       const r = reads[i];

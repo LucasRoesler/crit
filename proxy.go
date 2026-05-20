@@ -18,7 +18,8 @@ import (
 )
 
 // newLiveProxy builds a reverse proxy for a live-mode session.
-// upstreamOrigin is the target scheme+host+port (e.g. "http://localhost:3000").
+// upstreamOrigin is the target URL, optionally including a path prefix
+// (e.g. "http://localhost:3000" or "http://localhost:3333/live.html").
 // apiPort is the API server's port, used to construct the agent script URL.
 func newLiveProxy(upstreamOrigin string, apiPort int) (http.Handler, error) {
 	target, err := url.Parse(upstreamOrigin)
@@ -198,16 +199,11 @@ func applyHTMLInjections(body []byte, apiPort int) ([]byte, bool) {
 	// earlier offset stays valid.
 	masked := maskHTMLComments(body)
 	preamble := swShim + routeAnnouncerScript
-	tags := fmt.Sprintf(
-		`<script src="http://localhost:%d/agent-protocol.js"></script>`+
-			`<script src="http://localhost:%d/agent-anchor-utils.js"></script>`+
-			`<script src="http://localhost:%d/agent-marker-overlay.js"></script>`+
-			`<script src="http://localhost:%d/agent-mutation-batcher.js"></script>`+
-			`<script src="http://localhost:%d/agent-resolution.js"></script>`+
-			`<script src="http://localhost:%d/agent-reanchor-state.js"></script>`+
-			`<script src="http://localhost:%d/crit-agent.js"></script>`,
-		apiPort, apiPort, apiPort, apiPort, apiPort, apiPort, apiPort,
-	)
+	var sb strings.Builder
+	for _, f := range agentScriptFiles {
+		fmt.Fprintf(&sb, `<script src="http://localhost:%d/%s"></script>`, apiPort, f)
+	}
+	tags := sb.String()
 
 	// Agent bundle insertion point: LAST </body>. Last match avoids matching
 	// `</body>` literals inside <script> string literals earlier in the doc.

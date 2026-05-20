@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,12 +45,12 @@ func connectToPreviewDaemon(key string, noOpen bool) bool {
 	if !alive {
 		return false
 	}
-	fmt.Fprintf(os.Stderr, "[crit] connected to preview daemon at http://localhost:%d\n", entry.Port)
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/preview\n", entry.Port)
+	fmt.Fprintf(os.Stderr, "[crit] connected to preview daemon at %s\n", entry.baseURL())
+	fmt.Fprintf(os.Stderr, "[crit] open %s/preview\n", entry.baseURL())
 	if !noOpen && !daemonHasBrowser(entry) {
-		go openBrowser(fmt.Sprintf("http://localhost:%d/preview", entry.Port))
+		go openBrowser(entry.baseURL() + "/preview")
 	}
-	runReviewClient(entry)
+	runReviewClient(entry, key)
 	return true
 }
 
@@ -76,7 +75,7 @@ func createPreviewSession(sc *serverConfig) (*Session, error) {
 		ReviewRound:         1,
 		ReviewType:          "preview",
 		Origin:              sc.previewFile,
-		CLIArgs:             []string{sc.previewFile},
+		CLIArgs:             []string{"preview", sc.previewFile},
 		awaitingFirstReview: true,
 		subscribers:         make(map[chan SSEEvent]struct{}),
 		roundComplete:       make(chan struct{}, 1),
@@ -94,22 +93,6 @@ func createPreviewSession(sc *serverConfig) (*Session, error) {
 		s.loadCritJSON()
 	}
 	return s, nil
-}
-
-// handlePreviewPage serves index.html for the /preview path.
-func (s *Server) handlePreviewPage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	f, err := s.assets.Open("index.html")
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	defer f.Close()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.Copy(w, f)
 }
 
 // handlePreviewContent serves the previewed HTML file and its sibling assets
@@ -173,13 +156,13 @@ func (s *Server) servePreviewHTML(w http.ResponseWriter, filePath string) {
 		return
 	}
 
-	agentScripts := `<script src="/agent-protocol.js"></script>` +
-		`<script src="/agent-anchor-utils.js"></script>` +
-		`<script src="/agent-marker-overlay.js"></script>` +
-		`<script src="/agent-mutation-batcher.js"></script>` +
-		`<script src="/agent-resolution.js"></script>` +
-		`<script src="/agent-reanchor-state.js"></script>` +
-		`<script src="/crit-agent.js"></script>`
+	var sb strings.Builder
+	for _, f := range agentScriptFiles {
+		sb.WriteString(`<script src="/`)
+		sb.WriteString(f)
+		sb.WriteString(`"></script>`)
+	}
+	agentScripts := sb.String()
 
 	// Inject before last </body>
 	idx := bytes.LastIndex(bytes.ToLower(body), []byte("</body>"))
@@ -200,6 +183,12 @@ func (s *Server) servePreviewHTML(w http.ResponseWriter, filePath string) {
 func runPreview(args []string) {
 	fs := flag.NewFlagSet("preview", flag.ExitOnError)
 	noOpen := fs.Bool("no-open", false, "Don't auto-open browser")
+	port := fs.Int("port", 0, "Port to listen on")
+	fs.IntVar(port, "p", 0, "Port (shorthand)")
+	host := fs.String("host", "", "Host to listen on")
+	quiet := fs.Bool("quiet", false, "Suppress status output")
+	fs.BoolVar(quiet, "q", false, "Suppress status (shorthand)")
+	shareURL := fs.String("share-url", "", "Share service URL")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -218,9 +207,7 @@ func runPreview(args []string) {
 		os.Exit(1)
 	}
 	cfg := LoadConfig(cwd)
-	if cfg.NoOpen {
-		*noOpen = true
-	}
+	noOpenResolved := *noOpen || cfg.NoOpen
 
 	if rawPath == "" {
 		fmt.Fprintln(os.Stderr, "Usage: crit preview <file.html>")
@@ -240,11 +227,18 @@ func runPreview(args []string) {
 	}
 
 	key := previewSessionKey(cwd, absPath)
-	if connectToPreviewDaemon(key, *noOpen) {
+	if connectToPreviewDaemon(key, noOpenResolved) {
 		return
 	}
 
 	daemonArgs := []string{"--preview-file", absPath}
+	daemonArgs = appendCommonDaemonFlags(daemonArgs, commonDaemonFlags{
+		port:     resolvePort(*port, cfg.Port),
+		host:     resolveHost(*host, cfg.Host),
+		noOpen:   noOpenResolved,
+		quiet:    *quiet || cfg.Quiet,
+		shareURL: resolveShareURL(*shareURL, cfg, ""),
+	})
 	entry, err := startDaemon(key, daemonArgs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: could not start preview daemon: %v\n", err)
@@ -252,13 +246,13 @@ func runPreview(args []string) {
 	}
 
 	fmt.Fprintf(os.Stderr, "[crit] preview mode: %s\n", filepath.Base(absPath))
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/preview\n", entry.Port)
+	fmt.Fprintf(os.Stderr, "[crit] open %s/preview\n", entry.baseURL())
 
 	installDaemonSignalHandler(entry.PID)
 
-	if !*noOpen {
-		go openBrowser(fmt.Sprintf("http://localhost:%d/preview", entry.Port))
+	if !noOpenResolved {
+		go openBrowser(entry.baseURL() + "/preview")
 	}
 
-	runReviewClient(entry)
+	runReviewClient(entry, key)
 }

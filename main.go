@@ -1624,8 +1624,10 @@ type planConfig struct {
 	filePath      string
 	stdinExpected bool
 	port          int
+	host          string
 	noOpen        bool
 	quiet         bool
+	shareURL      string
 }
 
 func resolvePlanConfig(args []string) planConfig {
@@ -1633,16 +1635,20 @@ func resolvePlanConfig(args []string) planConfig {
 	name := fs.String("name", "", "Plan name/slug for session identification")
 	port := fs.Int("port", 0, "Port to listen on")
 	fs.IntVar(port, "p", 0, "Port (shorthand)")
+	host := fs.String("host", "", "Host to listen on")
 	noOpen := fs.Bool("no-open", false, "Don't auto-open browser")
 	quiet := fs.Bool("quiet", false, "Suppress status output")
 	fs.BoolVar(quiet, "q", false, "Suppress status (shorthand)")
+	shareURL := fs.String("share-url", "", "Share service URL")
 	fs.Parse(args)
 
 	pc := planConfig{
-		name:   *name,
-		port:   *port,
-		noOpen: *noOpen,
-		quiet:  *quiet,
+		name:     *name,
+		port:     *port,
+		host:     *host,
+		noOpen:   *noOpen,
+		quiet:    *quiet,
+		shareURL: *shareURL,
 	}
 
 	remaining := fs.Args()
@@ -1699,9 +1705,9 @@ func resolvePlanSlug(name string, content []byte) string {
 func connectOrStartDaemon(key string, args []string, noOpen bool) (sessionEntry, bool) {
 	entry, alive := findAliveSession(key)
 	if alive {
-		fmt.Fprintf(os.Stderr, "Connected to crit daemon at http://localhost:%d\n", entry.Port)
+		fmt.Fprintf(os.Stderr, "Connected to crit daemon at %s\n", entry.baseURL())
 		if !noOpen && !daemonHasBrowser(entry) {
-			go openBrowser(fmt.Sprintf("http://localhost:%d", entry.Port))
+			go openBrowser(entry.baseURL())
 		}
 		return entry, false
 	}
@@ -1712,8 +1718,32 @@ func connectOrStartDaemon(key string, args []string, noOpen bool) (sessionEntry,
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stderr, "Started crit daemon at http://localhost:%d (PID %d)\n", entry.Port, entry.PID)
+	fmt.Fprintf(os.Stderr, "Started crit daemon at %s (PID %d)\n", entry.baseURL(), entry.PID)
+	hintMissingIntegrations()
 	return entry, true
+}
+
+// hintMissingIntegrations prints a suggestion when AI tools are detected but
+// no crit integration is installed. Skipped when any integration already exists
+// or when CRIT_NO_INTEGRATION_CHECK is set.
+func hintMissingIntegrations() {
+	if os.Getenv("CRIT_NO_INTEGRATION_CHECK") != "" {
+		return
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	hintMissingIntegrationsFor(mustGetwd(), home)
+}
+
+func hintMissingIntegrationsFor(cwd, home string) {
+	if len(installedAgents(cwd, home)) > 0 {
+		return
+	}
+	if missing := checkMissingIntegrations(cwd, home); len(missing) > 0 {
+		printMissingHints(missing)
+	}
 }
 
 func installDaemonSignalHandler(pid int) {
@@ -1819,7 +1849,14 @@ func runPlan(args []string) {
 	cwd, _ := resolvedCWD()
 	key := planSessionKey(cwd, slug)
 	currentPath := filepath.Join(storageDir, "current.md")
-	daemonArgs := buildPlanDaemonArgs(currentPath, storageDir, slug, pc.port, pc.noOpen, pc.quiet)
+	cfg := LoadConfig(cwd)
+	daemonArgs := buildPlanDaemonArgs(currentPath, storageDir, slug, commonDaemonFlags{
+		port:     resolvePort(pc.port, cfg.Port),
+		host:     resolveHost(pc.host, cfg.Host),
+		noOpen:   pc.noOpen || cfg.NoOpen,
+		quiet:    pc.quiet || cfg.Quiet,
+		shareURL: resolveShareURL(pc.shareURL, cfg, ""),
+	})
 
 	entry, weStartedDaemon := connectOrStartDaemon(key, daemonArgs, pc.noOpen)
 
@@ -1827,7 +1864,7 @@ func runPlan(args []string) {
 		installDaemonSignalHandler(entry.PID)
 	}
 
-	approved := runReviewClient(entry)
+	approved := runReviewClient(entry, key)
 	killDaemonOnApproval(approved, entry.PID)
 	cleanupOnApproval(approved, entry.ReviewPath, LoadConfig(cwd).CleanupOnApproveEnabled())
 }
@@ -1915,15 +1952,15 @@ func runPlanHook() {
 	cwd, _ := resolvedCWD()
 	key := planSessionKey(cwd, slug)
 	currentPath := filepath.Join(storageDir, "current.md")
-	daemonArgs := buildPlanDaemonArgs(currentPath, storageDir, slug, 0, false, false)
+	daemonArgs := buildPlanDaemonArgs(currentPath, storageDir, slug, commonDaemonFlags{})
 
 	entry, alive := findAliveSession(key)
 	weStartedDaemon := false
 
 	if alive {
-		fmt.Fprintf(os.Stderr, "crit plan-hook: connected to daemon at http://localhost:%d\n", entry.Port)
+		fmt.Fprintf(os.Stderr, "crit plan-hook: connected to daemon at %s\n", entry.baseURL())
 		if !daemonHasBrowser(entry) {
-			go openBrowser(fmt.Sprintf("http://localhost:%d", entry.Port))
+			go openBrowser(entry.baseURL())
 		}
 	} else {
 		entry, err = startDaemon(key, daemonArgs)
@@ -1931,7 +1968,7 @@ func runPlanHook() {
 			fmt.Fprintf(os.Stderr, "crit plan-hook: error starting daemon: %v\n", err)
 			return
 		}
-		fmt.Fprintf(os.Stderr, "crit plan-hook: started daemon at http://localhost:%d (PID %d)\n", entry.Port, entry.PID)
+		fmt.Fprintf(os.Stderr, "crit plan-hook: started daemon at %s (PID %d)\n", entry.baseURL(), entry.PID)
 		weStartedDaemon = true
 	}
 
@@ -1939,7 +1976,7 @@ func runPlanHook() {
 		installDaemonSignalHandler(entry.PID)
 	}
 
-	approved, prompt := runReviewClientRaw(entry)
+	approved, prompt := runReviewClientRaw(entry, key)
 	killDaemonOnApproval(approved, entry.PID)
 	cleanupOnApproval(approved, entry.ReviewPath, LoadConfig(cwd).CleanupOnApproveEnabled())
 	emitHookDecision(approved, prompt)
@@ -1949,11 +1986,20 @@ func runPlanHook() {
 // returning 503 Service Unavailable (session not yet initialized). Returns the
 // last response status code and body, or an error if the daemon is unreachable
 // or the 5-minute deadline expires.
-func waitForDaemonReady(client *http.Client, port int) (statusCode int, body []byte, err error) {
+//
+// On connection errors (e.g. "connection refused"), the daemon log is consulted
+// to surface the actual init failure instead of the misleading network error.
+func waitForDaemonReady(client *http.Client, host string, port int, sessionKey string) (statusCode int, body []byte, err error) {
+	base := fmt.Sprintf("http://%s:%d", hostForDisplay(host), port)
 	deadline := time.Now().Add(5 * time.Minute)
 	for {
-		resp, reqErr := client.Get(fmt.Sprintf("http://127.0.0.1:%d/api/session", port))
+		resp, reqErr := client.Get(base + "/api/session")
 		if reqErr != nil {
+			if sessionKey != "" {
+				if msg := readDaemonLog(sessionKey); msg != "" {
+					return 0, nil, fmt.Errorf("%s", msg)
+				}
+			}
 			return 0, nil, fmt.Errorf("could not reach daemon on port %d: %w", port, reqErr)
 		}
 		respBody, _ := io.ReadAll(resp.Body)
@@ -1970,17 +2016,17 @@ func waitForDaemonReady(client *http.Client, port int) (statusCode int, body []b
 
 // runReviewClientRaw is like runReviewClient but returns (approved, prompt)
 // without writing to stdout — used by runPlanHook to construct hookSpecificOutput.
-func runReviewClientRaw(entry sessionEntry) (approved bool, prompt string) {
+func runReviewClientRaw(entry sessionEntry, sessionKey string) (approved bool, prompt string) {
 	client := &http.Client{Timeout: 24 * time.Hour}
 
 	// Wait for the server to finish initializing before calling review-cycle.
-	if _, _, err := waitForDaemonReady(client, entry.Port); err != nil {
+	if _, _, err := waitForDaemonReady(client, entry.Host, entry.Port, sessionKey); err != nil {
 		fmt.Fprintf(os.Stderr, "crit plan-hook: %v\n", err)
 		return false, "crit daemon was unreachable; plan was not reviewed."
 	}
 
 	resp, err := client.Post(
-		fmt.Sprintf("http://127.0.0.1:%d/api/review-cycle", entry.Port),
+		entry.baseURL()+"/api/review-cycle",
 		"application/json",
 		nil,
 	)
@@ -2070,18 +2116,18 @@ func runReview(args []string) {
 	weStartedDaemon := false
 
 	if alive {
-		fmt.Fprintf(os.Stderr, "Connected to crit daemon at http://localhost:%d\n", entry.Port)
+		fmt.Fprintf(os.Stderr, "Connected to crit daemon at %s\n", entry.baseURL())
 		// Re-open browser if no browser tab is connected (user closed it)
 		if !sc.noOpen && !daemonHasBrowser(entry) {
-			go openBrowser(fmt.Sprintf("http://localhost:%d", entry.Port))
+			go openBrowser(entry.baseURL())
 		}
 	} else {
 		// Pre-flight: in default git mode (no files, no focus, no plan), surface
-		// "no changed files" up front instead of letting the daemon spawn, signal
-		// readiness, then crash on init — which leaves the user with a misleading
-		// "could not reach daemon / connection refused" error. See issue #438.
+		// errors up front instead of letting the daemon spawn, signal readiness,
+		// then crash on init — which leaves the user with a misleading
+		// "could not reach daemon / connection refused" error. See #438, #593.
 		if len(sc.files) == 0 && sc.focus == nil && sc.planDir == "" {
-			if msg := preflightNoChangedFiles(sc); msg != "" {
+			if msg := preflightCheck(sc); msg != "" {
 				fmt.Fprint(os.Stderr, msg)
 				os.Exit(1)
 			}
@@ -2092,7 +2138,15 @@ func runReview(args []string) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Fprintf(os.Stderr, "Started crit daemon at http://localhost:%d (PID %d)\n", entry.Port, entry.PID)
+		fmt.Fprintf(os.Stderr, "Started crit daemon at %s (PID %d)\n", entry.baseURL(), entry.PID)
+		if dirs := dirArgs(sc.files); len(dirs) > 0 {
+			fmt.Fprintf(os.Stderr, "\nNote: scanning %s — file paths are intended for reviewing a small set of\n"+
+				"documents or plans. To review code changes, run `crit` with no arguments\n"+
+				"on a feature branch.\n\n", strings.Join(dirs, ", "))
+		}
+		if !sc.noIntegrationCheck {
+			hintMissingIntegrations()
+		}
 		weStartedDaemon = true
 	}
 
@@ -2101,7 +2155,7 @@ func runReview(args []string) {
 		installDaemonSignalHandler(entry.PID)
 	}
 
-	approved := runReviewClient(entry)
+	approved := runReviewClient(entry, key)
 	killDaemonOnApproval(approved, entry.PID)
 	cleanupOnApproval(approved, entry.ReviewPath, LoadConfig(cwd).CleanupOnApproveEnabled())
 }
@@ -2126,11 +2180,11 @@ func readReviewCycleResponse(resp *http.Response) ([]byte, error) {
 // runReviewClient connects to a running daemon/server, blocks until the user
 // finishes reviewing, prints feedback to stdout, and returns whether the
 // review was approved (no unresolved comments).
-func runReviewClient(entry sessionEntry) (approved bool) {
+func runReviewClient(entry sessionEntry, sessionKey string) (approved bool) {
 	client := &http.Client{Timeout: 24 * time.Hour}
 
 	// Wait for the server to finish initializing before calling review-cycle.
-	statusCode, body, err := waitForDaemonReady(client, entry.Port)
+	statusCode, body, err := waitForDaemonReady(client, entry.Host, entry.Port, sessionKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -2148,7 +2202,7 @@ func runReviewClient(entry sessionEntry) (approved bool) {
 	}
 
 	resp, err := client.Post(
-		fmt.Sprintf("http://127.0.0.1:%d/api/review-cycle", entry.Port),
+		entry.baseURL()+"/api/review-cycle",
 		"application/json",
 		nil,
 	)
@@ -2182,6 +2236,17 @@ func runReviewClient(entry sessionEntry) (approved bool) {
 		return result.Approved
 	}
 	return false
+}
+
+// dirArgs returns the subset of paths that are directories.
+func dirArgs(paths []string) []string {
+	var dirs []string
+	for _, p := range paths {
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			dirs = append(dirs, p)
+		}
+	}
+	return dirs
 }
 
 // TODO: runStop, runStatus, and other subcommands use DetectVCS("") for auto-detection.

@@ -138,6 +138,38 @@ test('applyRects without scroll offsets behaves as before (back-compat)', () => 
   assert.deepEqual(writes, ['a:translate(5px, 10px)']);
 });
 
+test('applyRects hides marker when target is disconnected from DOM', () => {
+  const target = {
+    isConnected: false,
+    getBoundingClientRect: () => { throw new Error('should not be called'); },
+  };
+  const m = { target, el: { style: {} } };
+  overlay.applyRects([m]);
+  assert.equal(m.el.style.display, 'none');
+});
+
+test('applyRects positions marker when target is connected with zero-size rect', () => {
+  const target = {
+    isConnected: true,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
+  };
+  const m = { target, el: { style: {} } };
+  overlay.applyRects([m]);
+  assert.equal(m.el.style.display, '');
+  assert.equal(m.el.style.transform, 'translate(0px, 0px)');
+});
+
+test('applyRects shows marker when target is connected with non-zero rect', () => {
+  const target = {
+    isConnected: true,
+    getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 50 }),
+  };
+  const m = { target, el: { style: {} } };
+  overlay.applyRects([m]);
+  assert.equal(m.el.style.display, '');
+  assert.equal(m.el.style.transform, 'translate(10px, 20px)');
+});
+
 test('setMarkersTabindex toggles all markers atomically', () => {
   const m1 = { _attrs: { tabindex: '0' }, setAttribute(k, v) { this._attrs[k] = v; } };
   const m2 = { _attrs: { tabindex: '0' }, setAttribute(k, v) { this._attrs[k] = v; } };
@@ -150,24 +182,8 @@ test('setMarkersTabindex toggles all markers atomically', () => {
   assert.equal(m2._attrs.tabindex, '0');
 });
 
-test('marker keyboard handler fires on Enter and Space', () => {
-  // Verify the wiring contract: when the agent attaches a keydown handler,
-  // Enter and Space both trigger the post.
-  const handlers = {};
-  const el = {
-    addEventListener: (t, fn) => { (handlers[t] = handlers[t] || []).push(fn); },
-  };
-  let posted = null;
-  const post = (m) => (posted = m);
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      post({ type: 'pin-clicked', pin_id: 'p1' });
-    }
-  });
-  handlers.keydown[0]({ key: 'Enter', preventDefault() {} });
-  assert.deepEqual(posted, { type: 'pin-clicked', pin_id: 'p1' });
-  posted = null;
-  handlers.keydown[0]({ key: ' ', preventDefault() {} });
-  assert.deepEqual(posted, { type: 'pin-clicked', pin_id: 'p1' });
-});
+// TODO: This test previously reimplemented the keyboard handler locally instead
+// of exercising the real handler from crit-agent.js (which runs inside the iframe
+// and wires up during initialization). It passed regardless of what the real code
+// did. Replace with an E2E test in e2e/ that verifies Enter/Space on markers in
+// live-mode triggers pin-clicked via the actual iframe agent wiring.

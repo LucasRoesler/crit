@@ -247,6 +247,33 @@
     }
   });
 
+  // Add id attributes and anchor links to headings
+  const HEADING_LINK_SVG = '<svg class="heading-anchor-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a2.002 2.002 0 0 0 0 2.83Z"></path></svg>';
+  // Track seen heading slugs per render pass to dedup duplicates (GitHub-style: examples, examples-1, examples-2)
+  const headingSlugCounter = new Map();
+  documentMd.renderer.rules.heading_open = function(tokens, idx, options, _env, self) {
+    const token = tokens[idx];
+    const inline = tokens[idx + 1];
+    if (inline && inline.type === 'inline') {
+      const baseSlug = window.crit.lineBlocks.slugifyHeading(inline.content);
+      if (baseSlug) {
+        const count = headingSlugCounter.get(baseSlug) || 0;
+        const slug = count === 0 ? baseSlug : baseSlug + '-' + count;
+        headingSlugCounter.set(baseSlug, count + 1);
+        token.attrSet('id', slug);
+      }
+    }
+    return self.renderToken(tokens, idx, options);
+  };
+  documentMd.renderer.rules.heading_close = function(tokens, idx, options, _env, self) {
+    const openIdx = idx - 2;
+    const id = openIdx >= 0 ? tokens[openIdx].attrGet('id') : null;
+    if (id) {
+      return '<a class="heading-anchor" href="#' + id + '" aria-label="Link to this heading">' + HEADING_LINK_SVG + '</a>' + self.renderToken(tokens, idx, options);
+    }
+    return self.renderToken(tokens, idx, options);
+  };
+
   // ===== Cookie helpers (persist across random ports on 127.0.0.1) =====
   function setCookie(name, value) {
     document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; SameSite=Strict';
@@ -490,6 +517,8 @@
         if (brewDismissed !== pendingUpdatesVersion) return true;
       } else if (u.kind === 'integration') {
         if (!u.hash || intDismissed[u.agent] !== u.hash) return true;
+      } else if (u.kind === 'missing-integration') {
+        if (!intDismissed['missing:' + u.agent]) return true;
       } else {
         return true;
       }
@@ -957,6 +986,17 @@
         });
       });
     }
+    if (configRes.missing_integrations) {
+      configRes.missing_integrations.forEach(function(agent) {
+        const name = agent.replace(/\b\w/g, function(c) { return c.toUpperCase(); }).replace(/-/g, ' ');
+        pendingUpdates.push({
+          kind: 'missing-integration',
+          agent: agent,
+          label: name + ' detected — install integration',
+          hint: 'crit install ' + agent
+        });
+      });
+    }
 
     pendingUpdatesVersion = configRes.latest_version || configRes.version || '';
     if (hasActivePendingUpdates()) {
@@ -1090,6 +1130,7 @@
     updateViewedCount();
     restoreDrafts();
     applyHideResolved();
+    scrollToHashHeading();
   }
 
   // Show/hide the Toggle Diff button and Split/Unified toggle in file mode
@@ -1192,6 +1233,7 @@
 
   // ===== Markdown Parsing =====
   function parseMarkdown(content) {
+    headingSlugCounter.clear();
     const tokens = documentMd.parse(content, {});
     const blocks = buildLineBlocks(tokens, documentMd, content);
     const tocItems = extractTocItems(tokens);
@@ -7937,6 +7979,32 @@
     window.addEventListener('scroll', tocScrollHandler, { passive: true });
     tocScrollHandler();
   }
+
+  // ===== Hash Navigation (heading anchors) =====
+  function scrollToHashHeading() {
+    const hash = window.location.hash;
+    if (!hash || hash === '#') return;
+    const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) return;
+    const headerHeight = (document.querySelector('.header')?.offsetHeight || 49) + 8;
+    const y = target.getBoundingClientRect().top + window.scrollY - headerHeight;
+    window.scrollTo({ top: y, behavior: 'instant' });
+  }
+  window.addEventListener('hashchange', scrollToHashHeading);
+
+  document.addEventListener('click', function(e) {
+    const anchor = e.target.closest('.heading-anchor');
+    if (!anchor) return;
+    e.preventDefault();
+    const hash = anchor.getAttribute('href');
+    const url = anchor.href;
+    history.replaceState(null, '', hash);
+    scrollToHashHeading();
+    navigator.clipboard.writeText(url).then(function() {
+      anchor.classList.add('heading-anchor-copied');
+      setTimeout(function() { anchor.classList.remove('heading-anchor-copied'); }, 1500);
+    }).catch(function() {});
+  });
 
   // ===== Mermaid =====
   function getMermaidTheme() {

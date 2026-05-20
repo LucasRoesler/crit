@@ -503,6 +503,118 @@ func (s *Session) handleRoundCompleteGit() {
 	s.finishRoundComplete(edits)
 }
 
+// relPathFromRoot returns a slash-separated path relative to repoRoot, falling
+// back to the absolute path when the result would escape the root.
+func relPathFromRoot(absPath, repoRoot string) string {
+	if repoRoot == "" {
+		return absPath
+	}
+	rel, err := filepath.Rel(repoRoot, absPath)
+	if err != nil {
+		return filepath.ToSlash(absPath)
+	}
+	slash := filepath.ToSlash(rel)
+	if strings.HasPrefix(slash, "../") || slash == ".." {
+		return filepath.ToSlash(absPath)
+	}
+	return slash
+}
+
+// buildFileEntry reads absPath from disk and constructs a FileEntry suitable
+// for appending to s.Files. Returns nil if the file cannot be read.
+func (s *Session) buildFileEntry(absPath, repoRoot, baseRef string, vcs VCS) *FileEntry {
+	relPath := relPathFromRoot(absPath, repoRoot)
+
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil
+	}
+
+	fe := &FileEntry{
+		Path:      relPath,
+		AbsPath:   absPath,
+		Status:    "modified",
+		FileType:  detectFileType(absPath),
+		Content:   string(data),
+		FileHash:  fileHash(data),
+		Comments:  []Comment{},
+		Generated: isGenerated(relPath, s.generatedRules),
+	}
+
+	if vcs != nil {
+		hunks, diffErr := vcs.FileDiffUnified(relPath, baseRef, repoRoot)
+		if diffErr == nil {
+			fe.DiffHunks = hunks
+		}
+	}
+
+	return fe
+}
+
+// refreshFilesFromCLIDirs re-walks the original CLI arguments and appends any
+// newly-discovered files to s.Files. Mirrors the construction loop in
+// NewSessionFromFiles so file-mode picks up files created by the agent between
+// rounds without requiring a daemon restart.
+//
+// Discovery only — does not remove entries for files that disappeared. See the
+// "Out of scope" note in the originating bug brief for the deletion-handling
+// rationale.
+//
+// Must only be called from the single watcher goroutine (watchFileMtimes), so
+// the read-snapshot / write-append sequence cannot interleave with another
+// round-complete handler.
+func (s *Session) refreshFilesFromCLIDirs() {
+	s.mu.RLock()
+	mode := s.Mode
+	cliArgs := append([]string(nil), s.CLIArgs...)
+	ignorePatterns := append([]string(nil), s.IgnorePatterns...)
+	repoRoot := s.RepoRoot
+	baseRef := s.BaseRef
+	vcs := s.VCS
+	existing := make(map[string]struct{}, len(s.Files))
+	for _, f := range s.Files {
+		existing[f.AbsPath] = struct{}{}
+	}
+	s.mu.RUnlock()
+
+	if mode != "files" || len(cliArgs) == 0 {
+		return
+	}
+
+	expandedPaths, err := expandAndDedupPaths(cliArgs, ignorePatterns)
+	if err != nil {
+		return
+	}
+
+	var newFiles []*FileEntry
+	for _, absPath := range expandedPaths {
+		if _, ok := existing[absPath]; ok {
+			continue
+		}
+		if fe := s.buildFileEntry(absPath, repoRoot, baseRef, vcs); fe != nil {
+			newFiles = append(newFiles, fe)
+		}
+	}
+
+	if len(newFiles) == 0 {
+		return
+	}
+
+	s.mu.Lock()
+	have := make(map[string]struct{}, len(s.Files))
+	for _, f := range s.Files {
+		have[f.AbsPath] = struct{}{}
+	}
+	for _, fe := range newFiles {
+		if _, ok := have[fe.AbsPath]; ok {
+			continue
+		}
+		s.Files = append(s.Files, fe)
+		have[fe.AbsPath] = struct{}{}
+	}
+	s.mu.Unlock()
+}
+
 // handleRoundCompleteFiles handles round completion in files mode.
 // Re-reads files, carries forward unresolved comments.
 // Must only be called from the single watcher goroutine (watchFileMtimes).
@@ -510,6 +622,11 @@ func (s *Session) handleRoundCompleteFiles() {
 	s.mu.RLock()
 	edits := s.lastRoundEdits
 	s.mu.RUnlock()
+
+	// Pick up files the agent created inside watched CLI dir args before
+	// re-reading existing contents, so the new files participate in the
+	// rest of the round-complete pipeline (snapshot capture, SSE notify).
+	s.refreshFilesFromCLIDirs()
 
 	s.loadResolvedComments()
 	s.carryForwardComments()

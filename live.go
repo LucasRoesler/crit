@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -87,6 +88,8 @@ func runSmokeTest(origin string) smokeResult {
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
+		// A read failure already signals an unstable upstream; skip the
+		// missing-</body> warning here so it doesn't add noise on top.
 		return smokeResult{kind: smokeOK, hasCSPFrameAncestors: hasCSP}
 	}
 
@@ -126,20 +129,30 @@ func connectToLiveDaemon(key string) bool {
 	if !alive {
 		return false
 	}
-	fmt.Fprintf(os.Stderr, "[crit] connected to live daemon at http://localhost:%d (proxy :%d)\n",
-		entry.Port, entry.Port+1)
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/live\n", entry.Port)
+	fmt.Fprintf(os.Stderr, "[crit] connected to live daemon at %s (proxy :%d)\n",
+		entry.baseURL(), entry.Port+1)
+	fmt.Fprintf(os.Stderr, "[crit] open %s/live\n", entry.baseURL())
 	if !daemonHasBrowser(entry) {
-		go openBrowser(fmt.Sprintf("http://localhost:%d/live", entry.Port))
+		go openBrowser(entry.baseURL() + "/live")
 	}
-	runReviewClient(entry)
+	runReviewClient(entry, key)
 	return true
 }
 
 // runLive is the entry point for `crit live <url>`.
 func runLive(args []string) {
+	fs := flag.NewFlagSet("live", flag.ExitOnError)
+	port := fs.Int("port", 0, "Port to listen on")
+	fs.IntVar(port, "p", 0, "Port (shorthand)")
+	host := fs.String("host", "", "Host to listen on")
+	noOpen := fs.Bool("no-open", false, "Don't auto-open browser")
+	quiet := fs.Bool("quiet", false, "Suppress status output")
+	fs.BoolVar(quiet, "q", false, "Suppress status (shorthand)")
+	shareURL := fs.String("share-url", "", "Share service URL")
+	fs.Parse(args)
+
 	rawURL := ""
-	for _, a := range args {
+	for _, a := range fs.Args() {
 		if len(a) > 0 && a[0] != '-' {
 			rawURL = a
 			break
@@ -154,9 +167,59 @@ func runLive(args []string) {
 		fmt.Fprintf(os.Stderr, "crit live: %q is not a valid http/https URL\n", rawURL)
 		os.Exit(1)
 	}
-	origin := u.Scheme + "://" + u.Host
+	// Preserve the full URL including path so the frontend can load the
+	// correct page (e.g. http://localhost:3333/live.html, not just /).
+	u.RawQuery = ""
+	u.Fragment = ""
+	origin := strings.TrimSuffix(u.String(), "/")
 
 	// 1. Smoke test.
+	checkLiveSmoke(origin)
+
+	// 2. Session key + existing daemon check.
+	cwd, err := resolvedCWD()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	cfg := LoadConfig(cwd)
+	key := liveSessionKey(cwd, origin)
+	if connectToLiveDaemon(key) {
+		return
+	}
+
+	// 3. Spawn daemon via _serve. startDaemon prepends "_serve" itself.
+	noOpenResolved := *noOpen || cfg.NoOpen
+	daemonArgs := []string{"--live-origin", origin}
+	daemonArgs = appendCommonDaemonFlags(daemonArgs, commonDaemonFlags{
+		port:     resolvePort(*port, cfg.Port),
+		host:     resolveHost(*host, cfg.Host),
+		noOpen:   noOpenResolved,
+		quiet:    *quiet || cfg.Quiet,
+		shareURL: resolveShareURL(*shareURL, cfg, ""),
+	})
+	entry, err := startDaemon(key, daemonArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: could not start live daemon: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "[crit] starting daemon on :%d (api), :%d (proxy)\n",
+		entry.Port, entry.Port+1)
+	fmt.Fprintf(os.Stderr, "[crit] open %s/live\n", entry.baseURL())
+
+	installDaemonSignalHandler(entry.PID)
+
+	// 4. Open browser.
+	if !noOpenResolved {
+		go openBrowser(entry.baseURL() + "/live")
+	}
+
+	// 5. Block until review complete.
+	runReviewClient(entry, key)
+}
+
+func checkLiveSmoke(origin string) {
 	result := runSmokeTest(origin)
 	switch result.kind {
 	case smokeConnRefused, smokeNonHTML:
@@ -171,35 +234,4 @@ func runLive(args []string) {
 	for _, n := range result.frameworkNotes {
 		fmt.Fprintf(os.Stderr, "[crit] note: %s\n", n)
 	}
-
-	// 2. Session key + existing daemon check.
-	cwd, err := resolvedCWD()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	key := liveSessionKey(cwd, origin)
-	if connectToLiveDaemon(key) {
-		return
-	}
-
-	// 3. Spawn daemon via _serve. startDaemon prepends "_serve" itself.
-	daemonArgs := []string{"--live-origin", origin}
-	entry, err := startDaemon(key, daemonArgs)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: could not start live daemon: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Fprintf(os.Stderr, "[crit] starting daemon on :%d (api), :%d (proxy)\n",
-		entry.Port, entry.Port+1)
-	fmt.Fprintf(os.Stderr, "[crit] open http://localhost:%d/live\n", entry.Port)
-
-	installDaemonSignalHandler(entry.PID)
-
-	// 4. Open browser.
-	go openBrowser(fmt.Sprintf("http://localhost:%d/live", entry.Port))
-
-	// 5. Block until review complete.
-	runReviewClient(entry)
 }

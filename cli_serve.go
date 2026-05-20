@@ -265,16 +265,19 @@ func resolveVCSOverride(flag, config string) string {
 	return config
 }
 
-// preflightNoChangedFiles runs the git-mode change detection up front so the
-// CLI can print a clean message instead of failing inside the daemon (issue
-// #438). Returns the user-facing message to print on stderr if there are no
-// changes, or "" if the daemon should proceed normally (changes present, not
-// a VCS repo, or any other detection error — those are surfaced by the
-// daemon's normal init path).
-func preflightNoChangedFiles(sc *serverConfig) string {
+// preflightCheck runs pre-spawn checks for default git mode (no files, no
+// focus, no plan). Returns a user-facing message to print on stderr if the
+// daemon should not be spawned, or "" if everything looks fine.
+//
+// Two cases:
+//   - Not in a VCS repo at all → clear "not in a git repository" message (#593)
+//   - In a VCS repo but no changed files → "no changed files found" message (#438)
+func preflightCheck(sc *serverConfig) string {
 	vcs := DetectVCS(sc.vcsOverride)
 	if vcs == nil {
-		return ""
+		return "Not in a version-controlled repository.\n\n" +
+			"  crit              review changed files (run inside a git/sapling/jj repo)\n" +
+			"  crit <file...>    review specific file(s)\n"
 	}
 	if sc.baseBranch != "" {
 		vcs.SetDefaultBranchOverride(sc.baseBranch)
@@ -348,7 +351,7 @@ func createLiveSession(sc *serverConfig) (*Session, error) {
 		ReviewRound: 1,
 		ReviewType:  "live",
 		Origin:      sc.liveOrigin,
-		CLIArgs:     []string{sc.liveOrigin},
+		CLIArgs:     []string{"live", sc.liveOrigin},
 		// awaitingFirstReview must be true so the daemon-client's first
 		// /api/review-cycle call does NOT fire SignalRoundComplete at boot.
 		// Without this gate the watcher bumps ReviewRound from 1 to 2 before
@@ -495,13 +498,15 @@ func checkStaleIntegrations(sc *serverConfig, srv *Server, cwd string) {
 	if sc.noIntegrationCheck || os.Getenv("CRIT_NO_INTEGRATION_CHECK") != "" {
 		return
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		stale := checkInstalledIntegrations(cwd, home)
-		srv.staleIntegrations = stale
-		if len(stale) > 0 {
-			go printStaleWarnings(stale)
-		}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
 	}
+	stale := checkInstalledIntegrations(cwd, home)
+	srv.staleIntegrations = stale
+
+	missing := checkMissingIntegrations(cwd, home)
+	srv.missingIntegrations = missing
 }
 
 // liveSessionArgsTag is the leading element of sessionEntry.Args for a
@@ -548,7 +553,14 @@ func runServe(args []string) {
 	}
 	sc.reviewPath = resolveServeReviewPath(sc.outputDir, sc.planDir, key)
 	srv.reviewPath = sc.reviewPath
-	srv.cliArgs = sc.files
+	switch {
+	case sc.liveOrigin != "":
+		srv.cliArgs = []string{"live", sc.liveOrigin}
+	case sc.previewFile != "":
+		srv.cliArgs = []string{"preview", sc.previewFile}
+	default:
+		srv.cliArgs = sc.files
+	}
 	sessionArgs := sc.files
 	if sc.liveOrigin != "" {
 		sessionArgs = []string{liveSessionArgsTag, sc.liveOrigin}
@@ -559,6 +571,7 @@ func runServe(args []string) {
 	if err := writeSessionFile(key, sessionEntry{
 		PID:        os.Getpid(),
 		Port:       addr.Port,
+		Host:       sc.host,
 		CWD:        cwd,
 		Args:       sessionArgs,
 		Branch:     branch,
@@ -620,11 +633,12 @@ func runServe(args []string) {
 		// macOS `open` is idempotent enough that the duplicate is harmless,
 		// but routing both to the same URL prevents the browser from briefly
 		// opening / first when the daemon spawns the open before the parent.
-		openURL := fmt.Sprintf("http://localhost:%d", addr.Port)
+		dh := hostForDisplay(sc.host)
+		openURL := fmt.Sprintf("http://%s:%d", dh, addr.Port)
 		if sc.liveOrigin != "" {
-			openURL = fmt.Sprintf("http://localhost:%d/live", addr.Port)
+			openURL = fmt.Sprintf("http://%s:%d/live", dh, addr.Port)
 		} else if sc.previewFile != "" {
-			openURL = fmt.Sprintf("http://localhost:%d/preview", addr.Port)
+			openURL = fmt.Sprintf("http://%s:%d/preview", dh, addr.Port)
 		}
 		go openBrowser(openURL)
 	}
@@ -678,9 +692,12 @@ func runServe(args []string) {
 		return
 	}
 	applySessionOverrides(session, sc)
-	if sc.liveOrigin != "" {
-		session.CLIArgs = []string{sc.liveOrigin}
-	} else {
+	switch {
+	case sc.liveOrigin != "":
+		session.CLIArgs = []string{"live", sc.liveOrigin}
+	case sc.previewFile != "":
+		session.CLIArgs = []string{"preview", sc.previewFile}
+	default:
 		session.CLIArgs = sc.files
 	}
 

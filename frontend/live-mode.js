@@ -55,6 +55,46 @@
   var utils = window.crit.liveUtils;
   var inflightAPI = (window.crit && window.crit.live && window.crit.live.inflight) || null;
 
+  // ===== Tab-Ready Indicator =====
+  // Same pattern as app.js: prepends ● to document.title when a new round
+  // starts while the tab is hidden. Clears on visibilitychange → visible.
+  var BADGE_PREFIX = '\u25CF ';
+  var baseTitle = document.title;
+  var badgeActive = false;
+
+  function setDocumentTitle(nextBase) {
+    baseTitle = nextBase;
+    document.title = badgeActive ? BADGE_PREFIX + baseTitle : baseTitle;
+  }
+
+  function setTabBadge() {
+    if (badgeActive) return;
+    badgeActive = true;
+    if (!document.title.startsWith(BADGE_PREFIX)) {
+      document.title = BADGE_PREFIX + baseTitle;
+    }
+  }
+
+  function clearTabBadge() {
+    if (!badgeActive) return;
+    badgeActive = false;
+    document.title = baseTitle;
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') clearTabBadge();
+  });
+
+  state.setTabBadge = setTabBadge;
+
+  if (location.search.includes('test')) {
+    window.__critTabBadge = {
+      set: setTabBadge,
+      clear: clearTabBadge,
+      isActive: function () { return badgeActive; },
+    };
+  }
+
   // Dedup guards for async ops triggerable from multiple sources (button
   // click + Cmd+Enter, double-click, race between Esc-then-Save, etc.).
   // Per-id Sets for comment-scoped ops; singleton flag for finish review.
@@ -271,6 +311,27 @@
       console.warn('[live-mode] unexpected review_type:', state.session.review_type);
     }
     state.isPreview = state.session.review_type === 'preview';
+
+    if (state.isPreview) {
+      var firstFile = (state.session.files && state.session.files.length)
+        ? state.session.files[0].path : 'preview';
+      setDocumentTitle('Crit — ' + firstFile);
+    } else {
+      setDocumentTitle('Crit — ' + (state.session.origin || 'live'));
+    }
+
+    // Extract initial route from the origin URL path (e.g.
+    // "http://localhost:3333/live.html" → "/live.html") so the iframe
+    // loads the correct page instead of always requesting "/".
+    if (state.isPreview) {
+      state.currentRoute = '/preview-content';
+    } else if (state.session.origin) {
+      try {
+        var originPath = new URL(state.session.origin).pathname;
+        if (originPath && originPath !== '/') state.currentRoute = originPath;
+      } catch (_) { /* malformed origin — keep default "/" */ }
+    }
+
     // Capture proxyOrigin once for the message handler. The agent
     // posts from the proxy origin; the chrome lives on the API origin and
     // accepts only that source+origin pair.
@@ -417,7 +478,9 @@
   // ============================================================
   function proxyURL(pathname) {
     if (state.isPreview) {
-      return '/preview-content' + (pathname || '/');
+      var p = pathname || '/';
+      if (p.indexOf('/preview-content') === 0) p = p.slice('/preview-content'.length) || '/';
+      return '/preview-content' + p;
     }
     var s = state.session || {};
     var port = s.proxy_port || 0;
@@ -558,6 +621,9 @@
   });
   registerInstaller(function installCommentsPanelResize() {
     if (panelCtl) panelCtl.installCommentsPanelResize();
+  });
+  registerInstaller(function installPanelCardRendererClick() {
+    if (panelCtl) panelCtl.installPanelCardRendererClick();
   });
 
 
@@ -705,14 +771,14 @@
         var text = p ? p.textContent : '';
         try {
           await navigator.clipboard.writeText(text);
-          clip.textContent = '✓ Copied';
+          var label = clip.querySelector('.copy-label');
+          if (label) label.textContent = 'Copied';
+          clip.classList.add('copied');
           clip.setAttribute('aria-label', 'Copied');
-          clip.classList.remove('clipboard-confirm');
-          void clip.offsetWidth;
-          clip.classList.add('clipboard-confirm');
           setTimeout(function () {
-            clip.textContent = 'Copy prompt';
-            clip.setAttribute('aria-label', 'Copy prompt');
+            if (label) label.textContent = 'Copy';
+            clip.classList.remove('copied');
+            clip.setAttribute('aria-label', 'Copy prompt to clipboard');
           }, 2000);
         } catch (_) {}
       });
@@ -1643,6 +1709,12 @@
       showToast('selection too large to save');
       return;
     }
+    if (!state.commentsPanelOpen && panelCtl) {
+      panelCtl.applyCommentsPanelOpen(true);
+      if (shared && shared.setSetting) {
+        try { shared.setSetting('live_commentsPanelOpen', true); } catch (_) {}
+      }
+    }
     var host = ensureComposerHost();
     host.innerHTML = window.crit.live.composer.renderComposerHTML(domAnchor);
     host.dataset.active = '1';
@@ -1785,6 +1857,13 @@
         pinBtn.removeAttribute('aria-disabled');
         pinBtn.removeAttribute('title');
       }
+    }
+    // After a round transition the iframe reloads and the new agent starts
+    // in navigate mode. If the user was in pin mode, re-sync so the agent
+    // honours pin clicks without requiring a manual navigate→pin toggle.
+    if (state.mode === 'pin') {
+      postToAgent({ type: 'set-mode', value: 'pin' });
+      postToAgent({ type: 'set-marker-tabindex', value: -1 });
     }
     pushPinsToAgent();
 
@@ -1937,7 +2016,7 @@
     }
     if (state.pendingFlashOnLoad && state.pendingPinId) {
       var pin = lookupPin(state.pendingPinId);
-      if (pin && pin.dom_anchor && pin.dom_anchor.pathname === state.currentRoute) {
+      if (pin && pin.dom_anchor && utils.normaliseRoute(pin.dom_anchor.pathname) === state.currentRoute) {
         performFlashAndScroll(pin);
       }
     }
@@ -2191,7 +2270,7 @@
       state.pendingPinId = null;
       return;
     }
-    var targetPath = (pin.dom_anchor && pin.dom_anchor.pathname) || '/';
+    var targetPath = utils.normaliseRoute((pin.dom_anchor && pin.dom_anchor.pathname) || '/');
     if (state.currentRoute !== targetPath) {
       if (els && els.iframe) {
         try { els.iframe.src = proxyURL(targetPath); } catch (_) { /* noop */ }
