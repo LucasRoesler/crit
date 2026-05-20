@@ -3855,7 +3855,7 @@ body.sidebar-resizing * {
   gap: 6px;
   overflow: hidden;
 }
-.file-header-name .dir { color: var(--crit-editor-fg-muted); }
+.file-header-name .dir { color: var(--crit-editor-fg-muted); flex-shrink: 2; }
 /* Truncate long paths; copy button (flex-shrink:0 by default) stays full size */
 .file-header-name .dir,
 .file-header-name .filename {
@@ -3864,9 +3864,7 @@ body.sidebar-resizing * {
   white-space: nowrap;
   min-width: 0;
 }
-.file-header-name .dir { flex-shrink: 2; }
 .file-header-name .filename { flex-shrink: 1; }
-.file-header-copy-path { flex-shrink: 0; }
 .file-header-badge {
   font-size: 10px;
   font-weight: 600;
