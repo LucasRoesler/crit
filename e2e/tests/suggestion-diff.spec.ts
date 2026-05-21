@@ -14,7 +14,7 @@ test.describe('Suggestion diff rendering', () => {
     // Add a comment with a suggestion block on a known line range
     const gutter = section.locator('.line-comment-gutter').first();
     await gutter.hover();
-    await gutter.locator('.line-add').click();
+    await gutter.click();
 
     const textarea = section.locator('.comment-form textarea');
     await textarea.fill('Here is my suggestion:\n\n```suggestion\nreplacement line\n```\n\nPlease consider this change.');
@@ -42,7 +42,7 @@ test.describe('Suggestion diff rendering', () => {
 
     const gutter = section.locator('.line-comment-gutter').first();
     await gutter.hover();
-    await gutter.locator('.line-add').click();
+    await gutter.click();
 
     const textarea = section.locator('.comment-form textarea');
     await textarea.fill('```suggestion\nnew content here\n```');
@@ -60,7 +60,7 @@ test.describe('Suggestion diff rendering', () => {
 
     const gutter = section.locator('.line-comment-gutter').first();
     await gutter.hover();
-    await gutter.locator('.line-add').click();
+    await gutter.click();
 
     const textarea = section.locator('.comment-form textarea');
     await textarea.fill('```javascript\nconsole.log("hello")\n```');
@@ -81,7 +81,7 @@ test.describe('Suggestion diff rendering', () => {
 
     const gutter = section.locator('.line-comment-gutter').first();
     await gutter.hover();
-    await gutter.locator('.line-add').click();
+    await gutter.click();
 
     const textarea = section.locator('.comment-form textarea');
     await textarea.fill('```suggestion\n```');

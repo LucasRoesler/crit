@@ -274,7 +274,8 @@ test('single click (no drag) does not open a form', async ({ page }) => {
       expect(blockBox).toBeTruthy();
       if (!blockBox) return;
 
-      await page.mouse.click(blockBox.x + 10, blockBox.y + blockBox.height / 2);
+      // Click in the content area (past the gutter) — gutter clicks now open comment forms
+      await page.mouse.click(blockBox.x + blockBox.width / 2, blockBox.y + blockBox.height / 2);
 
       await expect(section.locator('.comment-form')).not.toBeVisible();
     });
