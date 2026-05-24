@@ -2701,23 +2701,55 @@
       const ln = parseInt(this.dataset.lineNum);
       const s = this.dataset.side || '';
       const vi = this.dataset.visualIdx !== undefined ? parseInt(this.dataset.visualIdx) : undefined;
-
-      diffDragState = { filePath: fp, side: s, anchorLine: ln, currentLine: ln, anchorVisualIdx: vi, currentVisualIdx: vi };
-      activeFilePath = fp;
-      selectionStart = ln;
-      selectionEnd = ln;
-      if (diffMode !== 'split' && vi !== undefined) {
-        unifiedVisualStart = vi;
-        unifiedVisualEnd = vi;
-      }
-      renderFileByPath(fp);
-
-      document.body.classList.add('dragging');
+      beginDiffCommentDrag(fp, ln, s, vi);
       document.addEventListener('mousemove', handleDiffDragMove);
       document.addEventListener('mouseup', handleDiffDragEnd);
     });
     col.appendChild(btn);
     return col;
+  }
+
+  // Shared drag-init used by both the desktop mousedown handler on
+  // .diff-comment-btn and the touch pointerdown handler on .diff-gutter-num
+  // (added in attachDiffTouchHandler below for F4 mobile reliability).
+  function beginDiffCommentDrag(fp, ln, s, vi) {
+    diffDragState = { filePath: fp, side: s, anchorLine: ln, currentLine: ln, anchorVisualIdx: vi, currentVisualIdx: vi };
+    activeFilePath = fp;
+    selectionStart = ln;
+    selectionEnd = ln;
+    if (diffMode !== 'split' && vi !== undefined) {
+      unifiedVisualStart = vi;
+      unifiedVisualEnd = vi;
+    }
+    renderFileByPath(fp);
+    document.body.classList.add('dragging');
+  }
+
+  // F4: on touch devices, the desktop .diff-comment-btn affordance is
+  // invisible (no hover ever fires) and the user instead sees the `+`
+  // prefix that F3 puts on .diff-gutter-num. Make .diff-gutter-num itself
+  // a touch-tap target by delegating pointerdown on the diff container.
+  // The button's data attrs are co-located on the sibling .diff-comment-btn
+  // inside the same row's .diff-comment-gutter.
+  function attachDiffTouchHandler(container) {
+    container.addEventListener('pointerdown', function(e) {
+      if (e.pointerType !== 'touch') return;
+      const num = e.target.closest('.diff-gutter-num');
+      if (!num) return;
+      const row = num.closest('.diff-line, .diff-split-side');
+      if (!row) return;
+      const btn = row.querySelector('.diff-comment-btn');
+      if (!btn) return; // line not commentable
+      e.preventDefault();
+      e.stopPropagation();
+      const fp = btn.dataset.filePath;
+      const ln = parseInt(btn.dataset.lineNum);
+      const s = btn.dataset.side || '';
+      const vi = btn.dataset.visualIdx !== undefined ? parseInt(btn.dataset.visualIdx) : undefined;
+      beginDiffCommentDrag(fp, ln, s, vi);
+      document.addEventListener('pointermove', handleDiffDragMove);
+      document.addEventListener('pointerup', handleDiffDragEnd);
+    });
   }
 
   function handleDiffDragMove(e) {
@@ -2750,8 +2782,14 @@
   }
 
   function handleDiffDragEnd() {
+    // Remove both mouse and pointer listeners — desktop attaches mouse
+    // listeners via the .diff-comment-btn mousedown handler, touch
+    // attaches pointer listeners via attachDiffTouchHandler. Cleaning
+    // both is safe (removeEventListener is a no-op if not attached).
     document.removeEventListener('mousemove', handleDiffDragMove);
     document.removeEventListener('mouseup', handleDiffDragEnd);
+    document.removeEventListener('pointermove', handleDiffDragMove);
+    document.removeEventListener('pointerup', handleDiffDragEnd);
     document.body.classList.remove('dragging');
 
     if (!diffDragState) return;
@@ -3206,6 +3244,7 @@
   function renderDiffUnified(file) {
     const container = document.createElement('div');
     container.className = 'diff-container unified';
+    attachDiffTouchHandler(container);
 
     expandHunksForComments(file);
 
@@ -3334,6 +3373,7 @@
   function renderDiffSplit(file) {
     const container = document.createElement('div');
     container.className = 'diff-container split';
+    attachDiffTouchHandler(container);
 
     expandHunksForComments(file);
 

@@ -5442,4 +5442,14 @@ body.sidebar-resizing * {
   .diff-gutter-num:empty::before {
     content: none;
   }
+
+  /* F4 reliability: disable the browser's scroll/zoom gesture recognizer
+     on tap targets so it cannot race the pointerdown handler and fire
+     pointercancel before pointerup. Without this, single taps on phones
+     are sometimes silently dropped. .diff-gutter-num is the touch tap
+     target (an event delegate on .diff-container routes taps to the
+     hidden .diff-comment-btn that owns the form-open logic). */
+  .diff-gutter-num { touch-action: none; }
+  .diff-comment-gutter { touch-action: none; }
+  .line-comment-gutter { touch-action: none; }
 }

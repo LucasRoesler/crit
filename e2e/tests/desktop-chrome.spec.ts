@@ -90,4 +90,15 @@ test.describe('Desktop chrome invariants', () => {
     const btn = splitSide.locator('.diff-comment-btn');
     await expect(btn).toBeVisible();
   });
+
+  test('desktop click on diff + button opens comment form', async ({ page }) => {
+    // F4 must not break the existing desktop click path.
+    const splitSide = page.locator('#file-section-server\\.go .diff-split-side.addition').first();
+    await splitSide.scrollIntoViewIfNeeded();
+    await splitSide.hover();
+    const btn = splitSide.locator('.diff-comment-btn');
+    await expect(btn).toBeVisible();
+    await btn.click();
+    await expect(page.locator('.comment-form')).toBeVisible();
+  });
 });
