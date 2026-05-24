@@ -65,4 +65,29 @@ test.describe('Desktop chrome invariants', () => {
     expect(box).not.toBeNull();
     expect(box!.height).toBeLessThan(44);
   });
+
+  test('line-num ::before "+" prefix is not rendered on desktop', async ({ page }) => {
+    // F3 adds the ::before "+" prefix only under @media (pointer: coarse).
+    // On desktop the existing .line-add blue button on hover is the
+    // affordance, NOT the ::before. The pseudo-element's content must
+    // be 'none' (the unset default) so nothing renders.
+    const lineNum = page.locator('.diff-gutter-num').first();
+    await expect(lineNum).toBeAttached();
+    const content = await lineNum.evaluate((el) =>
+      getComputedStyle(el, '::before').content
+    );
+    expect(content).toBe('none');
+  });
+
+  test('desktop diff blue + button appears on row hover', async ({ page }) => {
+    // F3 must not break the existing desktop diff affordance:
+    // .diff-comment-btn becomes visible when its parent diff line / split
+    // side is hovered.
+    const splitSide = page.locator('#file-section-server\\.go .diff-split-side.addition').first();
+    await expect(splitSide).toBeAttached();
+    await splitSide.scrollIntoViewIfNeeded();
+    await splitSide.hover();
+    const btn = splitSide.locator('.diff-comment-btn');
+    await expect(btn).toBeVisible();
+  });
 });

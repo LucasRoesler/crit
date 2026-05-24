@@ -5405,3 +5405,41 @@ body.sidebar-resizing * {
     min-height: 44px;
   }
 }
+
+/* F3: add-comment affordance for touch.
+   On desktop the affordance is the blue `+` button (.line-add /
+   .diff-comment-btn) revealed on row hover. Touch devices never fire
+   hover, so users need an always-visible cue. We render a `+` prefix as
+   a positioned ::before pseudo-element on .line-num / .diff-gutter-num.
+   Position:absolute keeps it visually outside the line-number text so
+   the gutter column doesn't widen on files with long line numbers.
+   The desktop blue buttons are NOT hidden on touch: they remain in the
+   DOM as the click target (their mousedown handlers open the form), and
+   are visually invisible because their base opacity:0 has no hover
+   trigger. Making them actually tappable is F4's job (involves
+   pointer-events and touch-action). */
+@media (pointer: coarse) {
+  .line-num,
+  .diff-gutter-num {
+    position: relative;
+  }
+  .line-num::before,
+  .diff-gutter-num::before {
+    content: '+';
+    position: absolute;
+    left: -10px;
+    color: var(--crit-editor-fg-muted);
+    opacity: 0.6;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  /* Read-only line-number cells must not advertise commentability.
+     - Document view: a .line-block whose .line-comment-gutter has the
+       .diff-no-comment class shows a number but isn't tappable.
+     - Diff view: empty .diff-gutter-num cells (no line number on this
+       side) shouldn't show the cue either. */
+  .line-block:has(.line-comment-gutter.diff-no-comment) .line-num::before,
+  .diff-gutter-num:empty::before {
+    content: none;
+  }
+}
