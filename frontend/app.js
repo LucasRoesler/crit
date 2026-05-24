@@ -535,6 +535,26 @@
   let cachedConfig = null; // populated on first panel open
 
   let diffMode = getSetting('diffMode', 'split'); // 'split' or 'unified'
+  // Mobile viewports always render unified diffs. Split is unusable in <=768px
+  // because two columns of source code don't fit. The user's saved preference
+  // is preserved so it takes effect again above the breakpoint.
+  const mobileDiffQuery = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null;
+  if (mobileDiffQuery && mobileDiffQuery.matches) {
+    diffMode = 'unified';
+  }
+  if (mobileDiffQuery) {
+    // Re-evaluate on viewport changes (tablet rotation, devtools resize).
+    // When crossing into mobile, force unified; when crossing back out,
+    // restore the user's saved preference. Re-render so the change is visible.
+    mobileDiffQuery.addEventListener('change', function(ev) {
+      if (ev.matches) {
+        diffMode = 'unified';
+      } else {
+        diffMode = getSetting('diffMode', 'split');
+      }
+      if (typeof renderAllFiles === 'function') renderAllFiles();
+    });
+  }
   let diffScope = getSetting('diffScope', 'all'); // 'all', 'branch', 'staged', or 'unstaged'
 
   // Single source of truth for hide-resolved state. Persisted via the

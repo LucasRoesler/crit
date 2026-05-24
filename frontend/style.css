@@ -5263,6 +5263,24 @@ body.sidebar-resizing * {
   .diff-mode-toggle { display: none !important; }
   .header-context { display: none !important; }
   .base-branch-picker { display: none !important; }
+
+  /* Chrome on mobile computes viewport width from getBoundingClientRect() of
+     all descendants, including those inside overflow:clip containers. A
+     wrapping inline <span> (e.g. hljs-string) has a bounding rect that is
+     the union of all its line boxes — so a span that starts at column 10 and
+     wraps at column 80 reports right:80 even though its container clips at
+     column 40. Converting these spans to inline-block + max-width:100% +
+     overflow:hidden constrains each span's bounding rect to its container,
+     which stops Chrome from expanding the scrollable viewport. */
+  .diff-container,
+  .diff-view,
+  .diff-view-unified { overflow-x: auto; }
+  .diff-content { overflow: clip; }
+  .diff-content span {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+  }
 }
 
 /* Mobile file picker — shown instead of the hidden file-tree sidebar. */

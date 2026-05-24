@@ -31,4 +31,11 @@ test.describe('Desktop chrome invariants', () => {
     // satisfies that; if it's hidden on desktop something else went wrong.
     await expect(page.locator('.scope-toggle')).toBeVisible();
   });
+
+  test('diff defaults to split on desktop', async ({ page }) => {
+    // F5 forces unified mode on mobile only; desktop must still default to split.
+    const goSec = page.locator('#file-section-server\\.go');
+    await expect(goSec).toBeVisible();
+    await expect(goSec.locator('.diff-container.split')).toBeVisible();
+  });
 });
