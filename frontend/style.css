@@ -5340,3 +5340,68 @@ body.sidebar-resizing * {
     outline-offset: 1px;
   }
 }
+
+/* Touch-specific affordances and target sizing.
+   Reply actions are hover-revealed on desktop — on touch there's no hover,
+   so always show. All interactive header buttons get ≥44×44 (WCAG 2.5.5).
+   Textareas use 16px font-size to prevent iOS Safari focus-zoom. */
+@media (pointer: coarse) {
+  .reply-actions {
+    opacity: 1;
+  }
+
+  .comment-nav-btn {
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .comment-count-btn {
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .theme-toggle {
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .update-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .file-comment-btn {
+    padding: 12px 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .reply-actions button {
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+  .toc-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* iOS Safari zooms any focused input below 16px. */
+  .comment-form textarea,
+  .reply-input {
+    font-size: 16px;
+  }
+
+  /* Tiny header-row affordances: copy-path icon in .file-header-name and
+     the diff hunk-expand button. Both render in the file body on mobile so
+     they need real touch targets. */
+  .file-header-copy-path {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px;
+  }
+  .diff-spacer .expand-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

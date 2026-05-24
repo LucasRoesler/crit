@@ -53,4 +53,16 @@ test.describe('Desktop chrome invariants', () => {
     const fileSection = page.locator('.file-section').first();
     await expect(fileSection.locator('.file-header-name .filename')).toHaveCount(1);
   });
+
+  test('header icon buttons stay compact on desktop', async ({ page }) => {
+    // F2 expands touch targets to 44x44 under @media (pointer: coarse).
+    // Guard against those rules leaking into pointer:fine and inflating
+    // desktop button sizes. The exact upper bound matches the pre-F2
+    // computed size of .theme-toggle on main (small icon button).
+    const themeToggle = page.locator('.theme-toggle').first();
+    await expect(themeToggle).toBeVisible();
+    const box = await themeToggle.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeLessThan(44);
+  });
 });
