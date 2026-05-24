@@ -82,6 +82,11 @@ if [ $# -eq 0 ]; then
   PW6=$!
   npx playwright test --project=live-mode > "$PWLOGS/live.log" 2>&1 &
   PW7=$!
+  # Mobile shares the git-mode fixture port — must run AFTER git-mode finishes
+  # because both projects DELETE /api/comments in beforeEach. Subshell waits
+  # on PW1 before invoking the mobile run, then signals via PW8.
+  (wait $PW1; npx playwright test --project=mobile > "$PWLOGS/mobile.log" 2>&1) &
+  PW8=$!
 
   wait $PW1 || FAILED=1
   wait $PW2 || FAILED=1
@@ -90,6 +95,7 @@ if [ $# -eq 0 ]; then
   wait $PW5 || FAILED=1
   wait $PW6 || FAILED=1
   wait $PW7 || FAILED=1
+  wait $PW8 || FAILED=1
 
   # Print results — show summary for passing projects, full output for failures
   for f in "$PWLOGS"/*.log; do
