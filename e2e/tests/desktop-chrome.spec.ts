@@ -38,4 +38,19 @@ test.describe('Desktop chrome invariants', () => {
     await expect(goSec).toBeVisible();
     await expect(goSec.locator('.diff-container.split')).toBeVisible();
   });
+
+  test('file-header-viewed checkbox remains visible on desktop', async ({ page }) => {
+    // F6 hides .file-header-viewed on mobile only.
+    const viewed = page.locator('.file-header-viewed').first();
+    await expect(viewed).toBeVisible();
+  });
+
+  test('filename is wrapped in a .filename span for independent truncation', async ({ page }) => {
+    // F6 splits the file path into <span class='dir'> and <span class='filename'>
+    // so they can shrink independently with ellipsis. The rule is universal
+    // (not media-gated). Asserting on desktop guards against the JS template
+    // regressing the markup.
+    const fileSection = page.locator('.file-section').first();
+    await expect(fileSection.locator('.file-header-name .filename')).toHaveCount(1);
+  });
 });

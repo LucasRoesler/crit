@@ -3800,7 +3800,16 @@ body.sidebar-resizing * {
   align-items: center;
   gap: 6px;
 }
-.file-header-name .dir { color: var(--crit-editor-fg-muted); }
+.file-header-name .dir { color: var(--crit-editor-fg-muted); flex-shrink: 2; }
+.file-header-name .filename { flex-shrink: 1; }
+/* Truncate long paths; copy button (flex-shrink:0 by default) stays full size */
+.file-header-name .dir,
+.file-header-name .filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .file-header-badge {
   font-size: 10px;
   font-weight: 600;
@@ -5281,6 +5290,13 @@ body.sidebar-resizing * {
     max-width: 100%;
     overflow: hidden;
   }
+
+  /* File header on mobile: let the header wrap if needed (so the Doc/Diff
+     toggle moves below filename rather than pushing it off-screen) and hide
+     the "Viewed" checkbox whose margin-left:auto otherwise consumes all
+     remaining flex space and crushes the filename. */
+  .file-header { flex-wrap: wrap; }
+  .file-header-viewed { display: none; }
 }
 
 /* Mobile file picker — shown instead of the hidden file-tree sidebar. */
