@@ -5469,24 +5469,23 @@ body.sidebar-resizing * {
    On desktop the affordance is the blue `+` button (.line-add /
    .diff-comment-btn) revealed on row hover. Touch devices never fire
    hover, so users need an always-visible cue. We render a `+` prefix as
-   a positioned ::before pseudo-element on .line-num / .diff-gutter-num.
-   Position:absolute keeps it visually outside the line-number text so
-   the gutter column doesn't widen on files with long line numbers.
+   an inline ::before pseudo-element on .line-num / .diff-gutter-num.
+   display:inline-block + width:1.2ch reserves a fixed-width slot at the
+   start of each cell, so the glyph sits flush before the digit inside
+   the cell's right-aligned text. No absolute positioning: the prefix
+   never escapes its own cell, which avoids any phantom-column effect
+   in the two-cell unified diff layout.
    The desktop blue buttons are NOT hidden on touch: they remain in the
    DOM as the click target (their mousedown handlers open the form), and
    are visually invisible because their base opacity:0 has no hover
    trigger. Making them actually tappable is F4's job (involves
    pointer-events and touch-action). */
 @media (pointer: coarse) {
-  .line-num,
-  .diff-gutter-num {
-    position: relative;
-  }
   .line-num::before,
   .diff-gutter-num::before {
     content: '+';
-    position: absolute;
-    left: -10px;
+    display: inline-block;
+    width: 1.2ch;
     color: var(--crit-editor-fg-muted);
     opacity: 0.6;
     font-weight: 700;
@@ -5499,7 +5498,7 @@ body.sidebar-resizing * {
        side) shouldn't show the cue either. */
   .line-block:has(.line-comment-gutter.diff-no-comment) .line-num::before,
   .diff-gutter-num:empty::before {
-    content: none;
+    display: none;
   }
 
   /* F4 reliability: disable the browser's scroll/zoom gesture recognizer
