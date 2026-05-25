@@ -5356,6 +5356,24 @@ body.sidebar-resizing * {
   .file-header-stats  { order: 21; }
   /* Row 1 items keep default order (0); the comment button stays on row 1
      because order:0 < 5 < 10. */
+
+  /* Inline comment form + comment-block: desktop indents them past the
+     gutter columns (unified: padding-left:120px; split: 48px + width:50%)
+     so they sit aligned with the code content. On a 375px viewport that
+     consumes most of the row, crushing the textarea. Force full-row width
+     on mobile — the gutter-alignment was a desktop affordance. */
+  .diff-container.unified .comment-block,
+  .diff-container.unified .comment-form-wrapper,
+  .diff-container.split .comment-block,
+  .diff-container.split .comment-form-wrapper {
+    padding-left: 0;
+    width: auto;
+    max-width: none;
+  }
+  .diff-container.split .comment-block.diff-comment-right,
+  .diff-container.split .comment-form-wrapper.diff-comment-right {
+    margin-left: 0;
+  }
 }
 
 /* Mobile file picker — shown instead of the hidden file-tree sidebar. */
