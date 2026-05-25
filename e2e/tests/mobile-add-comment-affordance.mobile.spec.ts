@@ -28,15 +28,18 @@ test.describe('Mobile add-comment affordance (F3)', () => {
     expect(beforeStyle.opacity).toBeGreaterThan(0);
   });
 
-  test('desktop blue .diff-comment-btn is invisible on touch', async ({ page }) => {
-    // The .diff-comment-btn element stays in the DOM (F4 will make it the
-    // click target on touch). It's visually invisible because its base
-    // opacity is 0 and touch never fires hover. Assert opacity:0.
+  test('desktop blue .diff-comment-btn is display:none on touch', async ({ page }) => {
+    // The button stays in the DOM (its mousedown handler is the desktop
+    // click target — F4 routes touch via a separate pointer delegate on
+    // .diff-gutter-num). It's structurally hidden on touch via display:none
+    // so the browser can't render it under any state, including the
+    // brief .drag-endpoint window during a tap. Opacity-only hiding fails
+    // because the .drag-endpoint reveal rules force opacity:1.
     const btn = page.locator('.diff-comment-btn').first();
     await expect(btn).toBeAttached();
-    const opacity = await btn.evaluate((el) =>
-      parseFloat(getComputedStyle(el).opacity)
+    const display = await btn.evaluate((el) =>
+      getComputedStyle(el).display
     );
-    expect(opacity).toBe(0);
+    expect(display).toBe('none');
   });
 });

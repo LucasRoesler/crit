@@ -46,6 +46,31 @@ test.describe('Mobile tap-to-comment (F4)', () => {
     await expect(form).toBeVisible();
   });
 
+  test('tapping does not flash the blue + button on touch', async ({ page }) => {
+    // The JS sets .drag-endpoint on the tapped gutter during the
+    // pointerdown chain. A CSS rule makes .diff-comment-btn opacity:1
+    // when its gutter has .drag-endpoint — that rule would flash the
+    // blue button on touch between pointerdown and form-render.
+    // The structural fix: .diff-comment-btn is display:none by default
+    // and only display:flex inside @media (pointer: fine). On touch the
+    // element never renders, regardless of the .drag-endpoint state.
+    const section = goSection(page);
+    const additionLine = section.locator('.diff-container.unified .diff-line.addition').first();
+    await additionLine.scrollIntoViewIfNeeded();
+    const gutter = additionLine.locator('.diff-gutter-num').first();
+    const box = await gutter.boundingBox();
+    expect(box).not.toBeNull();
+    await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expect(page.locator('.comment-form')).toBeVisible();
+    // Even with .drag-endpoint set on the gutter, the button must remain
+    // display:none on touch.
+    const btn = additionLine.locator('.diff-comment-btn').first();
+    const display = await btn.evaluate((el) =>
+      getComputedStyle(el).display
+    );
+    expect(display).toBe('none');
+  });
+
   test('diff-gutter-num has touch-action:none on mobile (race-prevention)', async ({ page }) => {
     // The real-hardware reliability fix is touch-action:none on the tap
     // target. Playwright doesn't reproduce the pointercancel race, but it

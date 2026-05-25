@@ -952,12 +952,21 @@ body.visual-mode .diff-split-row.focused .diff-split-side {
   cursor: pointer;
 }
 
-.line-comment-gutter:hover .line-add { opacity: 1; pointer-events: auto; }
-
 /* During drag */
 body.dragging { user-select: none; cursor: grabbing; }
-body.dragging .line-comment-gutter.drag-endpoint .line-add { opacity: 1; pointer-events: none; }
-body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { opacity: 0; pointer-events: none; }
+
+/* Desktop only: reveal the blue + button on hover or while dragging.
+   These rules live inside @media (pointer: fine) because the touch
+   affordance is the ::before `+` prefix on .line-num (F3), and the
+   blue button must NOT render at all on touch (see the .line-add base
+   rule below — display:none by default, display:flex only on desktop).
+   Without this guard, touch tap can briefly flash the blue button while
+   .drag-endpoint is set during the pointerdown -> form-render gap. */
+@media (pointer: fine) {
+  .line-comment-gutter:hover .line-add { opacity: 1; pointer-events: auto; }
+  body.dragging .line-comment-gutter.drag-endpoint .line-add { opacity: 1; pointer-events: none; }
+  body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { opacity: 0; pointer-events: none; }
+}
 /* Blue connecting line in document comment gutter */
 .line-comment-gutter.drag-range::after {
   content: '';
@@ -979,20 +988,28 @@ body.dragging .line-comment-gutter.drag-range:not(.drag-endpoint) .line-add { op
   line-height: inherit;
 }
 
+/* Blue + button in the document comment gutter. display:none by default
+   so it never renders on touch (the touch affordance is the F3 ::before
+   `+` prefix). Desktop unhides it via @media (pointer: fine) below. */
 .line-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: var(--crit-brand);
-  color: var(--crit-fg-on-brand);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
+  display: none;
+}
+@media (pointer: fine) {
+  .line-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--crit-brand);
+    color: var(--crit-fg-on-brand);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* ===== Line Content (rendered markdown) ===== */
@@ -4111,31 +4128,43 @@ body.sidebar-resizing * {
   justify-content: center;
   padding-top: 1px;
 }
+/* Blue + button in the diff comment gutter. display:none by default so
+   it never renders on touch (the touch affordance is the F3 ::before
+   `+` prefix on .diff-gutter-num). Desktop unhides it via
+   @media (pointer: fine) below, along with the hover and drag-state
+   reveal rules. Without this guard, touch tap can briefly flash the
+   blue button while .drag-endpoint is set during the pointerdown ->
+   form-render gap. */
 .diff-comment-btn {
-  width: 20px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  border: none;
-  background: var(--crit-brand);
-  color: var(--crit-fg-on-brand);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.1s;
-  padding: 0;
-  line-height: 1;
+  display: none;
 }
-/* Show the + button when hovering the diff line or split side */
-.diff-line:hover .diff-comment-btn,
-.diff-split-side:hover .diff-comment-btn { opacity: 1; pointer-events: auto; }
-/* During drag: show the normal + button at endpoints, hide it on in-between lines */
-.diff-comment-gutter.drag-endpoint .diff-comment-btn { opacity: 1; pointer-events: none; z-index: 2; }
-.diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn { opacity: 0; pointer-events: none; }
+@media (pointer: fine) {
+  .diff-comment-btn {
+    display: flex;
+    width: 20px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: none;
+    background: var(--crit-brand);
+    color: var(--crit-fg-on-brand);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s;
+    padding: 0;
+    line-height: 1;
+  }
+  /* Show the + button when hovering the diff line or split side */
+  .diff-line:hover .diff-comment-btn,
+  .diff-split-side:hover .diff-comment-btn { opacity: 1; pointer-events: auto; }
+  /* During drag: show the normal + button at endpoints, hide it on in-between lines */
+  .diff-comment-gutter.drag-endpoint .diff-comment-btn { opacity: 1; pointer-events: none; z-index: 2; }
+  .diff-comment-gutter.drag-range:not(.drag-endpoint) .diff-comment-btn { opacity: 0; pointer-events: none; }
+}
 
 /* Blue connecting line between endpoints */
 .diff-comment-gutter.drag-range {
