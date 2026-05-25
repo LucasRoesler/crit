@@ -49,6 +49,28 @@ test.describe('Mobile file-header layout (F6)', () => {
     expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
   });
 
+  test('file-header lays out as two rows on mobile', async ({ page }) => {
+    // Row 1 = chevron + icon + name + comment-btn. Row 2 = toggle (markdown
+    // only) + badge + stats. The badge starts on its own row even on code
+    // files with no toggle. Assert via vertical positioning: the comment
+    // button on row 1 has a smaller y than the badge on row 2.
+    const fileHeader = page.locator('.file-header').first();
+    await expect(fileHeader).toBeVisible();
+    const positions = await fileHeader.evaluate((el) => {
+      const commentBtn = el.querySelector('.file-comment-btn');
+      const badge = el.querySelector('.file-header-badge');
+      return {
+        commentBtnTop: commentBtn ? commentBtn.getBoundingClientRect().top : null,
+        badgeTop: badge ? badge.getBoundingClientRect().top : null,
+      };
+    });
+    // Only meaningful if both elements rendered (file may be untracked
+    // without a badge, but the git-mode fixture's first file has both).
+    if (positions.commentBtnTop !== null && positions.badgeTop !== null) {
+      expect(positions.badgeTop).toBeGreaterThan(positions.commentBtnTop);
+    }
+  });
+
   test('page has no horizontal scroll at mobile viewport', async ({ page }) => {
     // The full assertion that was deferred from F1 and F5. With F6's
     // .file-header-viewed hide, no remaining element should push the page
