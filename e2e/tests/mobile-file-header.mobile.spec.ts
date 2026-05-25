@@ -27,6 +27,28 @@ test.describe('Mobile file-header layout (F6)', () => {
     expect(box!.width).toBeGreaterThan(0);
   });
 
+  test('file-header-name does not cause page overflow even with very long paths', async ({ page }) => {
+    // The git-mode fixture has short paths (server.go, plan.md). Real-world
+    // sessions can have long deeply-nested paths (.claude/rules/frontend-
+    // architecture.md) that, without `min-width: 0` + `overflow: hidden` on
+    // .file-header-name, push the entire page wider than viewport. Reproduce
+    // by injecting a long path into the first file-header-name and asserting
+    // page width stays within viewport.
+    const fileHeader = page.locator('.file-header-name').first();
+    await expect(fileHeader).toBeVisible();
+    await fileHeader.evaluate((el) => {
+      el.innerHTML =
+        '<span class="dir">.claude/rules/very/deeply/nested/directory/structure/</span>' +
+        '<span class="filename">extremely-long-filename-that-would-overflow-the-mobile-viewport.md</span>' +
+        '<button class="file-header-copy-path">copy</button>';
+    });
+    const widths = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
+  });
+
   test('page has no horizontal scroll at mobile viewport', async ({ page }) => {
     // The full assertion that was deferred from F1 and F5. With F6's
     // .file-header-viewed hide, no remaining element should push the page
