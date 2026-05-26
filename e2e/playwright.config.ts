@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import os from 'os';
 
+const isWindows = os.platform() === 'win32';
 const GIT_PORT = process.env.CRIT_TEST_PORT || '3123';
 const FILE_PORT = process.env.CRIT_TEST_FILE_PORT || '3124';
 const SINGLE_PORT = process.env.CRIT_TEST_SINGLE_PORT || '3125';
@@ -46,19 +48,19 @@ export default defineConfig({
         baseURL: `http://localhost:${GIT_PORT}`,
       },
     },
-    {
-      // Mobile project: touch emulation at 375x812 against the git-mode fixture.
-      // hasTouch makes :hover never fire and routes events through pointer/touch
-      // pipelines so they behave like real mobile hardware.
-      name: 'mobile',
+    // Touch emulation is a Chromium feature identical across OS — Linux
+    // coverage is sufficient, and Windows headless has reliability issues
+    // with touchscreen.tap() that cause 60s-per-test timeouts.
+    ...(!isWindows ? [{
+      name: 'mobile' as const,
       testMatch: /\.mobile\.spec\.ts$/,
       use: {
-        browserName: 'chromium',
+        browserName: 'chromium' as const,
         baseURL: `http://localhost:${MOBILE_PORT}`,
         viewport: { width: 375, height: 812 },
         hasTouch: true,
       },
-    },
+    }] : []),
     {
       name: 'file-mode',
       testMatch: /\.filemode\.spec\.ts$/,

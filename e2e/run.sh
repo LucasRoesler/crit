@@ -64,37 +64,46 @@ done
 
 # Run tests
 if [ $# -eq 0 ]; then
-  # No args: run all 4 projects in parallel for speed
+  # No args: run all projects in parallel (mobile after git-mode; see below)
   PWLOGS=$(mktemp -d)
   FAILED=0
 
   npx playwright test --project=git-mode > "$PWLOGS/git.log" 2>&1 &
-  PW1=$!
+  PW_GIT=$!
   npx playwright test --project=file-mode > "$PWLOGS/file.log" 2>&1 &
-  PW2=$!
+  PW_FILE=$!
   npx playwright test --project=single-file-mode > "$PWLOGS/single.log" 2>&1 &
-  PW3=$!
+  PW_SINGLE=$!
   npx playwright test --project=no-git-mode > "$PWLOGS/nogit.log" 2>&1 &
-  PW4=$!
+  PW_NOGIT=$!
   npx playwright test --project=multi-file-mode > "$PWLOGS/multi.log" 2>&1 &
-  PW5=$!
+  PW_MULTI=$!
   npx playwright test --project=range-mode > "$PWLOGS/range.log" 2>&1 &
-  PW6=$!
+  PW_RANGE=$!
   npx playwright test --project=live-mode > "$PWLOGS/live.log" 2>&1 &
-  PW7=$!
-  wait $PW1 || FAILED=1
-  wait $PW2 || FAILED=1
-  wait $PW3 || FAILED=1
-  wait $PW4 || FAILED=1
-  wait $PW5 || FAILED=1
-  wait $PW6 || FAILED=1
-  wait $PW7 || FAILED=1
+  PW_LIVE=$!
 
-  # Mobile shares the git-mode fixture port — runs after git-mode finishes
-  # because both projects DELETE /api/comments in beforeEach.
-  npx playwright test --project=mobile > "$PWLOGS/mobile.log" 2>&1 &
-  PW8=$!
-  wait $PW8 || FAILED=1
+  # Mobile shares the git-mode fixture (port 3123) and both projects call
+  # DELETE /api/comments in beforeEach, so they must not overlap. Wait for
+  # git-mode only, then launch mobile in parallel with the remaining projects.
+  # Skip on Windows — touch emulation is a Chromium feature identical across
+  # OS, and Windows headless has reliability issues with touchscreen.tap().
+  wait $PW_GIT || FAILED=1
+  if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then
+    npx playwright test --project=mobile > "$PWLOGS/mobile.log" 2>&1 &
+    PW_MOBILE=$!
+  fi
+
+  # Now wait for everything else.
+  wait $PW_FILE   || FAILED=1
+  wait $PW_SINGLE || FAILED=1
+  wait $PW_NOGIT  || FAILED=1
+  wait $PW_MULTI  || FAILED=1
+  wait $PW_RANGE  || FAILED=1
+  wait $PW_LIVE   || FAILED=1
+  if [ -n "${PW_MOBILE:-}" ]; then
+    wait $PW_MOBILE || FAILED=1
+  fi
 
   # Print results — show summary for passing projects, full output for failures
   for f in "$PWLOGS"/*.log; do
