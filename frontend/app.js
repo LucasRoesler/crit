@@ -552,7 +552,7 @@
       } else {
         diffMode = getSetting('diffMode', 'split');
       }
-      if (typeof renderAllFiles === 'function') renderAllFiles();
+      renderAllFiles();
     });
   }
   let diffScope = getSetting('diffScope', 'all'); // 'all', 'branch', 'staged', or 'unstaged'

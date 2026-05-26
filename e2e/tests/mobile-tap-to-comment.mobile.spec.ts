@@ -95,11 +95,11 @@ test.describe('Mobile tap-to-comment (F4)', () => {
     const additionLine = section.locator('.diff-container.unified .diff-line.addition').first();
     await additionLine.scrollIntoViewIfNeeded();
     const gutter = additionLine.locator('.diff-gutter-num').first();
-    const box = await gutter.boundingBox();
-    expect(box).not.toBeNull();
 
     let successes = 0;
     for (let i = 0; i < 10; i++) {
+      const box = await gutter.boundingBox();
+      expect(box).not.toBeNull();
       await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2);
       // Poll briefly for the form. If it appears, count success and cancel.
       try {
@@ -108,7 +108,7 @@ test.describe('Mobile tap-to-comment (F4)', () => {
         // Cancel to reset for the next iteration.
         const cancelBtn = page.locator('.comment-form button', { hasText: 'Cancel' }).first();
         if (await cancelBtn.isVisible()) await cancelBtn.click();
-        await page.locator('.comment-form').waitFor({ state: 'hidden', timeout: 1500 }).catch(() => {});
+        await expect(page.locator('.comment-form')).toBeHidden({ timeout: 1500 });
       } catch {
         // tap didn't open the form
       }
